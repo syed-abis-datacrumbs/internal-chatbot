@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DataCrumbs Bot — Test</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #e5ddd5;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .phone {
+      width: 420px;
+      height: 700px;
+      background: #fff;
+      border-radius: 20px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+    }
+
+    /* Header */
+    .header {
+      background: #075e54;
+      color: white;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .avatar {
+      width: 42px;
+      height: 42px;
+      background: #25d366;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+
+    .header-info h2 { font-size: 15px; font-weight: 600; }
+    .header-info p  { font-size: 12px; opacity: 0.8; }
+
+    .test-badge {
+      margin-left: auto;
+      background: #ff6b35;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 10px;
+      letter-spacing: 0.5px;
+    }
+
+    /* Messages */
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      background: #e5ddd5;
+    }
+
+    .messages::-webkit-scrollbar { width: 4px; }
+    .messages::-webkit-scrollbar-thumb { background: #aaa; border-radius: 4px; }
+
+    .bubble {
+      max-width: 78%;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      line-height: 1.5;
+      word-break: break-word;
+      position: relative;
+    }
+
+    .bubble .time {
+      font-size: 10px;
+      opacity: 0.6;
+      text-align: right;
+      margin-top: 3px;
+    }
+
+    .user-bubble {
+      background: #dcf8c6;
+      align-self: flex-end;
+      border-bottom-right-radius: 2px;
+    }
+
+    .bot-bubble {
+      background: #fff;
+      align-self: flex-start;
+      border-bottom-left-radius: 2px;
+      box-shadow: 0 1px 1px rgba(0,0,0,0.08);
+    }
+
+    .typing {
+      background: #fff;
+      align-self: flex-start;
+      border-radius: 8px;
+      border-bottom-left-radius: 2px;
+      padding: 10px 14px;
+      display: none;
+    }
+
+    .typing span {
+      display: inline-block;
+      width: 7px; height: 7px;
+      background: #aaa;
+      border-radius: 50%;
+      margin: 0 2px;
+      animation: bounce 1.2s infinite;
+    }
+    .typing span:nth-child(2) { animation-delay: 0.2s; }
+    .typing span:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); }
+      30%            { transform: translateY(-5px); }
+    }
+
+    /* Input */
+    .input-bar {
+      padding: 8px 10px;
+      background: #f0f0f0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .input-bar input {
+      flex: 1;
+      padding: 10px 16px;
+      border-radius: 22px;
+      border: none;
+      outline: none;
+      font-size: 14px;
+      background: #fff;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+    }
+
+    .input-bar button {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: #075e54;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+
+    .input-bar button:hover { background: #064f47; }
+    .input-bar button:disabled { background: #aaa; cursor: not-allowed; }
+
+    .input-bar button svg { fill: white; width: 20px; height: 20px; }
+
+    /* Welcome */
+    .welcome {
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: #856404;
+      text-align: center;
+      margin: 4px 0 8px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="phone">
+
+  <div class="header">
+    <div class="avatar">🤖</div>
+    <div class="header-info">
+      <h2>DataCrumbs Assistant</h2>
+      <p>AI & Data Science Bootcamp</p>
+    </div>
+    <span class="test-badge">TEST MODE</span>
+  </div>
+
+  <div class="messages" id="messages">
+    <div class="welcome">
+      This is a local test interface. Responses come from Gemini 2.5 Flash using the DataCrumbs knowledge base.
+    </div>
+    <div class="bubble bot-bubble">
+      👋 Hi! I'm the DataCrumbs assistant. Ask me anything about our AI & Data Science Bootcamp — curriculum, pricing, career outcomes, enrollment, or anything else!
+      <div class="time">now</div>
+    </div>
+    <div class="typing" id="typing">
+      <span></span><span></span><span></span>
+    </div>
+  </div>
+
+  <div class="input-bar">
+    <input
+      type="text"
+      id="input"
+      placeholder="Type a message..."
+      autocomplete="off"
+    />
+    <button id="sendBtn" onclick="sendMessage()">
+      <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+    </button>
+  </div>
+
+</div>
+
+<script>
+  const messagesEl = document.getElementById('messages');
+  const inputEl    = document.getElementById('input');
+  const sendBtn    = document.getElementById('sendBtn');
+  const typingEl   = document.getElementById('typing');
+
+  inputEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) sendMessage();
+  });
+
+  function getTime() {
+    return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function appendMessage(text, role) {
+    const bubble = document.createElement('div');
+    bubble.className = `bubble ${role === 'user' ? 'user-bubble' : 'bot-bubble'}`;
+
+    // Convert **bold** markdown to <strong>
+    const formatted = text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\n/g, '<br>');
+
+    bubble.innerHTML = `${formatted}<div class="time">${getTime()}</div>`;
+
+    // Insert before typing indicator
+    messagesEl.insertBefore(bubble, typingEl);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function setLoading(on) {
+    typingEl.style.display = on ? 'block' : 'none';
+    sendBtn.disabled = on;
+    inputEl.disabled = on;
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  async function sendMessage() {
+    const text = inputEl.value.trim();
+    if (!text) return;
+
+    inputEl.value = '';
+    appendMessage(text, 'user');
+    setLoading(true);
+
+    try {
+      const res = await fetch('/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text }),
+      });
+
+      const data = await res.json();
+
+      if (data.reply) {
+        appendMessage(data.reply, 'bot');
+      } else {
+        appendMessage('Sorry, something went wrong. Check the server logs.', 'bot');
+      }
+    } catch (err) {
+      appendMessage('Could not reach the server. Make sure it is running.', 'bot');
+    } finally {
+      setLoading(false);
+      inputEl.focus();
+    }
+  }
+</script>
+
+</body>
+</html>
