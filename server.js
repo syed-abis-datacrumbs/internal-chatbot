@@ -20,7 +20,8 @@ const BROCHURE_FILENAME = 'DataCrumbs-Bootcamp-Brochure.pdf';
 // Covers English + Roman Urdu phrases a prospective student would naturally type
 const BROCHURE_KEYWORDS = [
   // English — direct requests
-  'brochure', 'pdf', 'pamphlet', 'flyer', 'prospectus',
+  'brochure', 'broucher', 'brocher', 'brochur', 'broshure', 'broshur',
+  'pdf', 'pamphlet', 'flyer', 'prospectus',
   'send me details', 'share details', 'more details', 'more info',
   'course details', 'programme details', 'program details',
   'course outline', 'syllabus', 'course content', 'curriculum',
@@ -29,7 +30,8 @@ const BROCHURE_KEYWORDS = [
   // English — internship specific (unique to this brochure)
   'internship', 'internship details', 'with internship',
   // Roman Urdu — common WhatsApp patterns
-  'brochure bhejo', 'details bhejo', 'details send karo',
+  'brochar', 'brouchar', 'brochar bhejo', 'broucher bhejo',
+  'details bhejo', 'details send karo',
   'details chahiye', 'info chahiye', 'send karo',
   'course ka detail', 'programme ka detail', 'program ka detail',
   'zyada details', 'poori details', 'puri details',
@@ -39,7 +41,11 @@ const BROCHURE_KEYWORDS = [
 
 function wantsBrochure(text) {
   const lower = text.toLowerCase();
-  return BROCHURE_KEYWORDS.some(kw => lower.includes(kw));
+  // Direct keyword match
+  if (BROCHURE_KEYWORDS.some(kw => lower.includes(kw))) return true;
+  // Fuzzy match — catch any "broch" or "brouch" variant
+  if (/bro[uo]?ch/.test(lower)) return true;
+  return false;
 }
 
 // ─── Webhook Verification (Meta handshake) ───────────────────────────────────
