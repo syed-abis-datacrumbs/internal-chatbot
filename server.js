@@ -13,6 +13,35 @@ const WHATSAPP_TOKEN    = process.env.WHATSAPP_TOKEN;
 const VERIFY_TOKEN      = process.env.VERIFY_TOKEN;
 const PHONE_NUMBER_ID   = process.env.PHONE_NUMBER_ID;
 
+const BROCHURE_URL      = 'https://whatsapp-chatbot-73774e9a81bd.herokuapp.com/brochure.pdf';
+const BROCHURE_FILENAME = 'DataCrumbs-Bootcamp-Brochure.pdf';
+
+// ─── Brochure Keyword Detection ───────────────────────────────────────────────
+// Covers English + Roman Urdu phrases a prospective student would naturally type
+const BROCHURE_KEYWORDS = [
+  // English — direct requests
+  'brochure', 'pdf', 'pamphlet', 'flyer', 'prospectus',
+  'send me details', 'share details', 'more details', 'more info',
+  'course details', 'programme details', 'program details',
+  'course outline', 'syllabus', 'course content', 'curriculum',
+  'send me info', 'share info', 'detailed info',
+  'what is included', "what's included",
+  // English — internship specific (unique to this brochure)
+  'internship', 'internship details', 'with internship',
+  // Roman Urdu — common WhatsApp patterns
+  'brochure bhejo', 'details bhejo', 'details send karo',
+  'details chahiye', 'info chahiye', 'send karo',
+  'course ka detail', 'programme ka detail', 'program ka detail',
+  'zyada details', 'poori details', 'puri details',
+  'kuch aur batao', 'aur info do', 'overview bhejo',
+  'detail do', 'detail chahiye', 'full detail',
+];
+
+function wantsBrochure(text) {
+  const lower = text.toLowerCase();
+  return BROCHURE_KEYWORDS.some(kw => lower.includes(kw));
+}
+
 // ─── Webhook Verification (Meta handshake) ───────────────────────────────────
 app.get('/webhook', (req, res) => {
   const mode      = req.query['hub.mode'];
@@ -45,6 +74,13 @@ app.post('/webhook', async (req, res) => {
 
     console.log(`WhatsApp message from ${from}: ${text}`);
 
+    // Send brochure immediately if user is asking for it
+    if (wantsBrochure(text)) {
+      await sendWhatsAppDocument(from);
+      await sendWhatsAppMessage(from, 'Here is our complete Data Science & AI Bootcamp brochure! It covers the full curriculum, pricing, internship details, and instructor profiles. Let me know if you have any questions 😊');
+      return;
+    }
+
     const history = getHistory(from);
     addMessage(from, 'user', text);
 
@@ -59,7 +95,7 @@ app.post('/webhook', async (req, res) => {
   }
 });
 
-// ─── Send WhatsApp Message ────────────────────────────────────────────────────
+// ─── Send WhatsApp Text Message ───────────────────────────────────────────────
 async function sendWhatsAppMessage(to, text) {
   await axios.post(
     `https://graph.facebook.com/v19.0/${PHONE_NUMBER_ID}/messages`,
@@ -68,6 +104,28 @@ async function sendWhatsAppMessage(to, text) {
       to,
       type: 'text',
       text: { body: text },
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+    }
+  );
+}
+
+// ─── Send WhatsApp PDF Document ───────────────────────────────────────────────
+async function sendWhatsAppDocument(to) {
+  await axios.post(
+    `https://graph.facebook.com/v19.0/${PHONE_NUMBER_ID}/messages`,
+    {
+      messaging_product: 'whatsapp',
+      to,
+      type: 'document',
+      document: {
+        link: BROCHURE_URL,
+        filename: BROCHURE_FILENAME,
+      },
     },
     {
       headers: {
@@ -87,7 +145,16 @@ app.post('/chat', async (req, res) => {
 
   try {
     const sessionId = 'browser-test';
-    const history   = getHistory(sessionId);
+
+    // Show brochure link in browser test mode
+    if (wantsBrochure(message)) {
+      return res.json({
+        reply: `Here is our complete bootcamp brochure!\n\n📄 [Download Brochure](/brochure.pdf)\n\nIt covers the full curriculum, pricing (Rs 7,500/month), internship details, and instructor profiles. Let me know if you have any questions!`,
+        brochure: true
+      });
+    }
+
+    const history = getHistory(sessionId);
     addMessage(sessionId, 'user', message);
 
     const context = await retrieveContext(message);
