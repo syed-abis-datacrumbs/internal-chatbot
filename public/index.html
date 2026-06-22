@@ -239,9 +239,9 @@
     const bubble = document.createElement('div');
     bubble.className = `bubble ${role === 'user' ? 'user-bubble' : 'bot-bubble'}`;
 
-    // Convert **bold** markdown to <strong>
     const formatted = text
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\[([^\]]+)\]\((\/[^)]+)\)/g, '<a href="$2" target="_blank" style="color:#075e54;font-weight:600;">$1</a>')
       .replace(/\n/g, '<br>');
 
     bubble.innerHTML = `${formatted}<div class="time">${getTime()}</div>`;
