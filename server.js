@@ -104,7 +104,7 @@ app.post('/webhook', async (req, res) => {
 // ─── Send WhatsApp Text Message ───────────────────────────────────────────────
 async function sendWhatsAppMessage(to, text) {
   await axios.post(
-    `https://graph.facebook.com/v19.0/${PHONE_NUMBER_ID}/messages`,
+    `https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`,
     {
       messaging_product: 'whatsapp',
       to,
@@ -123,7 +123,7 @@ async function sendWhatsAppMessage(to, text) {
 // ─── Send WhatsApp PDF Document ───────────────────────────────────────────────
 async function sendWhatsAppDocument(to) {
   await axios.post(
-    `https://graph.facebook.com/v19.0/${PHONE_NUMBER_ID}/messages`,
+    `https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`,
     {
       messaging_product: 'whatsapp',
       to,
