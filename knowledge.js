@@ -131,6 +131,14 @@ A: Rs 7,500 per month for the 16-week program.`
 - Fill out the free 3-minute application form at: https://www.datacrumbs.org/ai-and-datascience
 - The form collects basic personal info, educational background, current status, and learning goals
 - Contact directly: +92 329 2020497 or info@datacrumbs.org`
+  },
+  {
+    id: 'brochure',
+    topic: 'Brochure and Course Details PDF',
+    text: `DataCrumbs has an official course brochure (PDF) for the Data Science & AI Bootcamp.
+The brochure covers: full curriculum, pricing (Rs 7,500/month), internship details, instructor profiles, and programme overview.
+If someone asks for the brochure, PDF, details, syllabus, course outline, or more information — tell them: "Sure! Let me send you our brochure right away." The brochure will be sent automatically.
+Keywords that trigger brochure: brochure, pdf, syllabus, details, course outline, internship, send me info, more info.`
   }
 ];
 
