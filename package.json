@@ -1,22 +1,23 @@
 {
-  "name": "datacrumbs-whatsapp-bot",
+  "name": "datacrumbs-chatbot",
   "version": "1.0.0",
-  "description": "WhatsApp chatbot for DataCrumbs AI & Data Science Bootcamp",
-  "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
-    "@google/genai": "^2.9.0",
     "@google/generative-ai": "^0.24.1",
     "@pinecone-database/pinecone": "^8.0.0",
     "axios": "^1.18.0",
-    "dotenv": "^17.4.2",
-    "express": "^5.2.1"
+    "next": "^15.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^5"
   }
 }
