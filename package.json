@@ -9,6 +9,7 @@
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@pinecone-database/pinecone": "^8.0.0",
+    "@upstash/redis": "^1.38.0",
     "axios": "^1.18.0",
     "next": "^15.0.0",
     "react": "^19.0.0",

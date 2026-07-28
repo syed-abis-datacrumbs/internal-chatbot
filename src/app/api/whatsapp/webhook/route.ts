@@ -3,6 +3,7 @@ import { after } from 'next/server';
 import { wantsBrochure, sendWhatsAppMessage, sendWhatsAppDocument } from '@/lib/whatsapp';
 import { retrieveContext } from '@/lib/rag';
 import { getAIReply } from '@/lib/gemini';
+import { saveMessage } from '@/lib/redis';
 
 // ── GET: Meta webhook verification ───────────────────────────────────────────
 export async function GET(req: NextRequest) {
@@ -33,14 +34,17 @@ export async function POST(req: NextRequest) {
       console.log(`WhatsApp message from ${from}: ${text}`);
 
       if (wantsBrochure(text)) {
+        const reply = 'Here is our complete Data Science & AI Bootcamp brochure! It covers the full curriculum, pricing, internship details, and instructor profiles. Let me know if you have any questions 😊';
         await sendWhatsAppDocument(from);
-        await sendWhatsAppMessage(from, 'Here is our complete Data Science & AI Bootcamp brochure! It covers the full curriculum, pricing, internship details, and instructor profiles. Let me know if you have any questions 😊');
+        await sendWhatsAppMessage(from, reply);
+        await saveMessage({ from, text, reply, timestamp: Date.now() });
         return;
       }
 
       const context = await retrieveContext(text);
       const reply   = await getAIReply(text, [], context);
       await sendWhatsAppMessage(from, reply);
+      await saveMessage({ from, text, reply, timestamp: Date.now() });
 
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
