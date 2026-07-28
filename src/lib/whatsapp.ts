@@ -28,7 +28,7 @@ export function wantsBrochure(text: string): boolean {
 }
 
 function apiUrl(path: string) {
-  return `https://graph.facebook.com/v21.0/${process.env.PHONE_NUMBER_ID}${path}`;
+  return `https://graph.facebook.com/v25.0/${process.env.PHONE_NUMBER_ID}${path}`;
 }
 
 function headers() {
