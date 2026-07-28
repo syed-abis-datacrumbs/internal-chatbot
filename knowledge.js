@@ -12,7 +12,7 @@ Other products: EasyHire (recruitment tool), NexusBot (AI product), Enterprise S
     id: 'pricing',
     topic: 'Pricing and Payment',
     text: `The AI & Data Science Bootcamp costs Rs 7,500 per month.
-There is a 30-day money-back guarantee — no questions asked.
+There is a 30-day money-back guarantee.
 The program runs for 16 weeks.`
   },
   {
@@ -102,6 +102,19 @@ Not suitable for:
 - Passive video-only learners`
   },
   {
+    id: 'laptop-requirements',
+    topic: 'Laptop, Computer and System Requirements',
+    text: `Laptop and system requirements for the AI & Data Science Bootcamp:
+You do NOT need an expensive, powerful, or high-end laptop. Any basic working laptop is enough to complete the whole program.
+- A normal entry-level laptop is perfectly fine — students regularly complete the bootcamp on basic and older machines
+- No graphics card (GPU) is required
+- Heavy work like Deep Learning and model training runs on free cloud tools such as Google Colab, so your own laptop does not do the heavy lifting
+- The tools used (Python, Jupyter, Google Colab, N8N, Power BI, SQL) run comfortably on a standard laptop
+- A stable internet connection matters much more than your laptop's specifications, because live workshops and cloud tools are used throughout
+- A low-spec, slow, or "light" laptop is not a problem and will not stop you from learning or completing projects
+If someone is still unsure whether their specific laptop will work, they can share the specs with the team at +92 329 2020497 for confirmation.`
+  },
+  {
     id: 'faq',
     topic: 'Frequently Asked Questions',
     text: `Frequently Asked Questions:
@@ -113,7 +126,7 @@ Q: How much time do I need per week?
 A: Around 8-12 hours per week for lectures, projects, and live sessions.
 
 Q: What if I don't like it?
-A: Full 30-day money-back guarantee, no questions asked.
+A: Full 30-day money-back guarantee.
 
 Q: Are live sessions recorded?
 A: Yes. All weekly workshops are recorded and available in your dashboard.
@@ -122,7 +135,10 @@ Q: Can I get a job after this?
 A: 85% of graduates land data/AI jobs within 6 months. Career support starts from Week 1.
 
 Q: How much does it cost?
-A: Rs 7,500 per month for the 16-week program.`
+A: Rs 7,500 per month for the 16-week program.
+
+Q: Do I need a powerful or expensive laptop?
+A: No. Any basic laptop works. No GPU is needed — heavy tasks run on free cloud tools like Google Colab. A stable internet connection matters more than your laptop's specs.`
   },
   {
     id: 'enrollment',
@@ -152,6 +168,19 @@ Rules:
 - If someone wants to enroll, share: https://www.datacrumbs.org/ai-and-datascience
 - If someone asks to speak to a human, give: +92 329 2020497
 - Never make up information not provided in the context below
-- Always reply in the same language the user writes in (Urdu or English)`;
+
+SCRIPT MATCHING — this is critical, follow it exactly:
+Reply in the SAME SCRIPT the user typed in, not just the same language.
+- User writes Roman Urdu (Urdu using English/Latin letters, e.g. "koi discount mil sakta hai?", "yeh kitne month ka course hai?") → reply in Roman Urdu using English letters ONLY. Example: "Ji bilkul! Yeh 16 weeks ka program hai aur fees Rs 7,500 per month hai."
+- User writes Urdu script (e.g. "کیا ڈسکاؤنٹ مل سکتا ہے؟") → reply in Urdu script
+- User writes English → reply in English
+- User mixes Roman Urdu and English (very common on WhatsApp) → reply in the same natural mix
+NEVER use Urdu/Arabic script (اردو) unless the user typed in Urdu script first. If the user's message is in Latin letters, every word of your reply must be in Latin letters — including greetings and filler words like "acha", "ji", "bilkul", "theek hai".
+
+Hand off to the team — ALWAYS close your reply with +92 329 2020497 when:
+- The user asks about a discount, scholarship, fee concession, installment plan, group/student offer, or tries to negotiate the price. Give the standard Rs 7,500/month price and mention the 30-day money-back guarantee, then hand off. Never confirm, deny, promise, or invent a discount yourself — only the team decides that
+- The user asks anything you cannot answer from the knowledge provided below
+
+Word the hand-off warmly and naturally, for example: "For any discount or special arrangement, our team can sort that out with you directly — call or WhatsApp them at +92 329 2020497 😊"`;
 
 module.exports = { KNOWLEDGE_CHUNKS, CORE_SYSTEM_PROMPT };
