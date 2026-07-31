@@ -1,9 +1,20 @@
-import { Redis } from '@upstash/redis';
+import { MongoClient, Db } from 'mongodb';
 
-export const redis = new Redis({
-  url: process.env.KV_REST_API_URL!,
-  token: process.env.KV_REST_API_TOKEN!,
-});
+const uri = process.env.MONGODB_URI!;
+
+// Reuse connection across hot-reloads in dev
+declare global {
+  // eslint-disable-next-line no-var
+  var _mongoClient: MongoClient | undefined;
+}
+
+async function getDb(): Promise<Db> {
+  if (!global._mongoClient) {
+    global._mongoClient = new MongoClient(uri);
+    await global._mongoClient.connect();
+  }
+  return global._mongoClient.db('datacrumbs_chatbot');
+}
 
 export interface ChatMessage {
   from: string;
@@ -12,23 +23,33 @@ export interface ChatMessage {
   timestamp: number;
 }
 
-export async function saveMessage(msg: ChatMessage) {
-  await redis.lpush('wa:messages', JSON.stringify(msg));
-  await redis.ltrim('wa:messages', 0, 499); // keep last 500
+export async function saveMessage(msg: ChatMessage): Promise<void> {
+  const db = await getDb();
+  await db.collection('wa_messages').insertOne(msg);
 }
 
 export async function getMessages(): Promise<ChatMessage[]> {
-  const raw = await redis.lrange('wa:messages', 0, -1);
-  return raw.map(r => (typeof r === 'string' ? JSON.parse(r) : r) as ChatMessage);
+  const db = await getDb();
+  const docs = await db
+    .collection<ChatMessage>('wa_messages')
+    .find({})
+    .sort({ timestamp: -1 })
+    .limit(500)
+    .toArray();
+  return docs.map(({ _id, ...rest }) => rest as ChatMessage);
 }
 
-const SYSTEM_PROMPT_KEY = 'dc:system_prompt';
-
 export async function getSystemPrompt(): Promise<string | null> {
-  const val = await redis.get<string>(SYSTEM_PROMPT_KEY);
-  return val ?? null;
+  const db  = await getDb();
+  const doc = await db.collection('settings').findOne({ key: 'system_prompt' });
+  return (doc?.value as string) ?? null;
 }
 
 export async function saveSystemPrompt(prompt: string): Promise<void> {
-  await redis.set(SYSTEM_PROMPT_KEY, prompt);
+  const db = await getDb();
+  await db.collection('settings').updateOne(
+    { key: 'system_prompt' },
+    { $set: { value: prompt } },
+    { upsert: true }
+  );
 }

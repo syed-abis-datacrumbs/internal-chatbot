@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { after } from 'next/server';
 import { wantsBrochure, sendWhatsAppMessage, sendWhatsAppDocument } from '@/lib/whatsapp';
-import { retrieveContext } from '@/lib/rag';
 import { getAIReply } from '@/lib/gemini';
 import { saveMessage, getSystemPrompt } from '@/lib/redis';
 
@@ -23,7 +22,6 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const body = await req.json();
 
-  // Respond 200 immediately so Meta doesn't retry
   after(async () => {
     try {
       const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
@@ -41,11 +39,8 @@ export async function POST(req: NextRequest) {
         return;
       }
 
-      const [context, systemPrompt] = await Promise.all([
-        retrieveContext(text),
-        getSystemPrompt(),
-      ]);
-      const reply = await getAIReply(text, [], context, systemPrompt);
+      const systemPrompt = await getSystemPrompt();
+      const reply = await getAIReply(text, [], systemPrompt);
       await sendWhatsAppMessage(from, reply);
       await saveMessage({ from, text, reply, timestamp: Date.now() });
 

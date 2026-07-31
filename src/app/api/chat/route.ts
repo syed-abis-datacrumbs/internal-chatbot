@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAIReply } from '@/lib/gemini';
-import { retrieveContext } from '@/lib/rag';
 import { wantsBrochure } from '@/lib/whatsapp';
 import { getSystemPrompt } from '@/lib/redis';
 
@@ -16,11 +15,8 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const [context, systemPrompt] = await Promise.all([
-      retrieveContext(message),
-      getSystemPrompt(),
-    ]);
-    const reply = await getAIReply(message, history, context, systemPrompt);
+    const systemPrompt = await getSystemPrompt();
+    const reply = await getAIReply(message, history, systemPrompt);
 
     return NextResponse.json({ reply });
   } catch (error: unknown) {

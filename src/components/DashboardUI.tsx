@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { ChatMessage } from '@/lib/redis';
 
 const GREEN = '#2AAA8A';
@@ -50,6 +50,13 @@ export default function DashboardUI({
   const [selected, setSelected] = useState<string | null>(initial[0]?.phone ?? null);
   const [input, setInput]       = useState('');
   const [sending, setSending]   = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef  = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'instant' });
+    inputRef.current?.focus();
+  }, [selected]);
   const [prompt, setPrompt]     = useState(initialPrompt);
   const [promptSaving, setPromptSaving] = useState(false);
   const [promptSaved, setPromptSaved]   = useState(false);
@@ -416,6 +423,7 @@ export default function DashboardUI({
 
                 </div>
               ))}
+              <div ref={bottomRef} />
             </div>
 
             {/* ── Send message input ── */}
@@ -437,6 +445,7 @@ export default function DashboardUI({
                   value={input}
                   onChange={e => setInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
+                  ref={inputRef}
                   placeholder="Type a message..."
                   disabled={sending}
                   style={{

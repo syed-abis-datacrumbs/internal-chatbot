@@ -11,18 +11,15 @@ interface HistoryMessage {
 export async function getAIReply(
   userMessage: string,
   history: HistoryMessage[],
-  context: string,
   systemPromptOverride?: string | null
 ): Promise<string> {
-  const base = systemPromptOverride ?? CORE_SYSTEM_PROMPT;
-  const systemWithContext = `${base}\n\n## RELEVANT KNOWLEDGE\n${context}`;
+  const systemInstruction = systemPromptOverride ?? CORE_SYSTEM_PROMPT;
 
   const model = genAI.getGenerativeModel({
     model: 'gemini-2.5-flash',
-    systemInstruction: systemWithContext,
+    systemInstruction,
   });
 
-  // Gemini requires history to start with 'user'
   const safeHistory = [...history];
   while (safeHistory.length > 0 && safeHistory[0].role !== 'user') {
     safeHistory.shift();
