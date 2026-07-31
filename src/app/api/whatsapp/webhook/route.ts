@@ -3,7 +3,7 @@ import { after } from 'next/server';
 import { wantsBrochure, sendWhatsAppMessage, sendWhatsAppDocument } from '@/lib/whatsapp';
 import { retrieveContext } from '@/lib/rag';
 import { getAIReply } from '@/lib/gemini';
-import { saveMessage } from '@/lib/redis';
+import { saveMessage, getSystemPrompt } from '@/lib/redis';
 
 // ── GET: Meta webhook verification ───────────────────────────────────────────
 export async function GET(req: NextRequest) {
@@ -41,8 +41,11 @@ export async function POST(req: NextRequest) {
         return;
       }
 
-      const context = await retrieveContext(text);
-      const reply   = await getAIReply(text, [], context);
+      const [context, systemPrompt] = await Promise.all([
+        retrieveContext(text),
+        getSystemPrompt(),
+      ]);
+      const reply = await getAIReply(text, [], context, systemPrompt);
       await sendWhatsAppMessage(from, reply);
       await saveMessage({ from, text, reply, timestamp: Date.now() });
 

@@ -11,9 +11,11 @@ interface HistoryMessage {
 export async function getAIReply(
   userMessage: string,
   history: HistoryMessage[],
-  context: string
+  context: string,
+  systemPromptOverride?: string | null
 ): Promise<string> {
-  const systemWithContext = `${CORE_SYSTEM_PROMPT}\n\n## RELEVANT KNOWLEDGE\n${context}`;
+  const base = systemPromptOverride ?? CORE_SYSTEM_PROMPT;
+  const systemWithContext = `${base}\n\n## RELEVANT KNOWLEDGE\n${context}`;
 
   const model = genAI.getGenerativeModel({
     model: 'gemini-2.5-flash',
