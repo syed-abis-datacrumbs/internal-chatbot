@@ -118,6 +118,7 @@ export default function DashboardUI({
         <div style={{
           background: `linear-gradient(135deg, #1e8a6e 0%, ${GREEN} 60%, #35c9a1 100%)`,
           padding: '20px 18px 16px',
+          position: 'relative',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
             <div style={{
@@ -140,6 +141,22 @@ export default function DashboardUI({
               {contacts.length} contact{contacts.length !== 1 ? 's' : ''} · {total} message{total !== 1 ? 's' : ''}
             </span>
           </div>
+
+          {/* Logout */}
+          <button
+            onClick={async () => {
+              await fetch('/api/auth/logout', { method: 'POST' });
+              window.location.href = '/login';
+            }}
+            style={{
+              position: 'absolute', top: 16, right: 16,
+              background: 'rgba(255,255,255,0.15)', border: 'none',
+              color: '#fff', cursor: 'pointer', borderRadius: 8,
+              padding: '5px 10px', fontSize: 11.5, fontFamily: 'inherit',
+            }}
+          >
+            Logout
+          </button>
 
           {/* Tab switcher */}
           <div style={{
