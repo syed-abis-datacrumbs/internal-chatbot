@@ -55,7 +55,7 @@ export async function sendWhatsAppDocument(to: string) {
       to,
       type: 'document',
       document: {
-        link: `${appUrl}/brochure.pdf`,
+        link: `${appUrl}/api/brochure`,
         filename: BROCHURE_FILENAME,
       },
     },

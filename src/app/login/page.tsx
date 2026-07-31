@@ -21,7 +21,7 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
       if (res.ok) {
-        window.location.href = '/dashboard';
+        window.location.href = '/overview';
       } else {
         setError('Invalid email or password.');
       }

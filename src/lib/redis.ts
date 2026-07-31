@@ -53,3 +53,156 @@ export async function saveSystemPrompt(prompt: string): Promise<void> {
     { upsert: true }
   );
 }
+
+// ── Analytics ──────────────────────────────────────────────────────────────
+
+export interface DayCount { date: string; count: number; }
+
+export interface Stats {
+  totalMessages: number;
+  todayMessages: number;
+  totalContacts: number;
+  todayContacts: number;
+  last7Days: DayCount[];
+  todayHours: number[]; // 24 elements, index = PKT hour
+}
+
+// PKT = UTC+5, no DST
+const PKT_MS = 5 * 60 * 60 * 1000;
+
+function pktDateKey(tsMs: number): string {
+  // Shift timestamp to PKT then format as YYYY-MM-DD using ISO slice
+  return new Date(tsMs + PKT_MS).toISOString().slice(0, 10);
+}
+
+export async function getStats(): Promise<Stats> {
+  const db = await getDb();
+  const col = db.collection('wa_messages');
+
+  // PKT midnight for "today" (floor current PKT time to the day)
+  const nowMs = Date.now();
+  const todayStartPKT = Math.floor((nowMs + PKT_MS) / 86400000) * 86400000 - PKT_MS;
+  const weekAgo = todayStartPKT - 6 * 86400000;
+
+  const [totalMessages, allFrom, todayFrom, weekDocs, todayDocs] = await Promise.all([
+    col.countDocuments(),
+    col.distinct('from'),
+    col.distinct('from', { timestamp: { $gte: todayStartPKT } }),
+    col.find({ timestamp: { $gte: weekAgo } }, { projection: { timestamp: 1, _id: 0 } }).toArray(),
+    col.find({ timestamp: { $gte: todayStartPKT } }, { projection: { timestamp: 1, _id: 0 } }).toArray(),
+  ]);
+
+  // Group last-7-days by PKT date in JavaScript (avoids $dateToString timezone issues)
+  const dayMap = new Map<string, number>();
+  for (const doc of weekDocs) {
+    const key = pktDateKey(doc.timestamp as number);
+    dayMap.set(key, (dayMap.get(key) ?? 0) + 1);
+  }
+
+  const last7Days: DayCount[] = Array.from({ length: 7 }, (_, i) => {
+    const key = pktDateKey(weekAgo + i * 86400000);
+    return { date: key, count: dayMap.get(key) ?? 0 };
+  });
+
+  // Group today's messages by PKT hour (0-23)
+  const todayHours = new Array<number>(24).fill(0);
+  for (const doc of todayDocs) {
+    const pktHour = Math.floor(((doc.timestamp as number) + PKT_MS) / (60 * 60 * 1000)) % 24;
+    todayHours[pktHour]++;
+  }
+
+  return {
+    totalMessages,
+    todayMessages: todayDocs.length,
+    totalContacts: allFrom.length,
+    todayContacts: todayFrom.length,
+    last7Days,
+    todayHours,
+  };
+}
+
+// ── Leads ──────────────────────────────────────────────────────────────────
+
+export interface Lead {
+  phone: string;
+  firstContact: number;
+  lastContact: number;
+  messageCount: number;
+}
+
+export async function getLeads(): Promise<Lead[]> {
+  const db  = await getDb();
+  const raw = await db.collection('wa_messages').aggregate<{
+    _id: string; firstContact: number; lastContact: number; messageCount: number;
+  }>([
+    {
+      $group: {
+        _id:          '$from',
+        firstContact: { $min: '$timestamp' },
+        lastContact:  { $max: '$timestamp' },
+        messageCount: { $sum: 1 },
+      },
+    },
+    { $sort: { lastContact: -1 } },
+  ]).toArray();
+
+  return raw.map(r => ({
+    phone:        r._id,
+    firstContact: r.firstContact,
+    lastContact:  r.lastContact,
+    messageCount: r.messageCount,
+  }));
+}
+
+// ── Bot Config ─────────────────────────────────────────────────────────────
+
+export interface BotConfig {
+  brochureUrl:    string;
+  batchStartDate: string;
+  batchEndDate:   string;
+  nextBatchNote:  string;
+}
+
+const DEFAULT_CONFIG: BotConfig = {
+  brochureUrl:    '/brochure.pdf',
+  batchStartDate: '',
+  batchEndDate:   '',
+  nextBatchNote:  '',
+};
+
+export async function getBotConfig(): Promise<BotConfig> {
+  const db  = await getDb();
+  const doc = await db.collection('settings').findOne({ key: 'bot_config' });
+  return doc ? (doc.value as BotConfig) : DEFAULT_CONFIG;
+}
+
+export async function saveBotConfig(config: BotConfig): Promise<void> {
+  const db = await getDb();
+  await db.collection('settings').updateOne(
+    { key: 'bot_config' },
+    { $set: { value: config } },
+    { upsert: true }
+  );
+}
+
+// ── Brochure ───────────────────────────────────────────────────────────────
+
+export async function saveBrochure(buffer: Buffer, filename: string): Promise<void> {
+  const db = await getDb();
+  await db.collection('settings').updateOne(
+    { key: 'brochure' },
+    { $set: { value: { data: buffer.toString('base64'), filename, uploadedAt: Date.now() } } },
+    { upsert: true }
+  );
+}
+
+export async function getBrochure(): Promise<{ data: Buffer; filename: string; uploadedAt: number } | null> {
+  const db  = await getDb();
+  const doc = await db.collection('settings').findOne({ key: 'brochure' });
+  if (!doc?.value?.data) return null;
+  return {
+    data:       Buffer.from(doc.value.data as string, 'base64'),
+    filename:   doc.value.filename as string,
+    uploadedAt: doc.value.uploadedAt as number,
+  };
+}
