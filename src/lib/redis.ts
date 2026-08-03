@@ -39,6 +39,18 @@ export async function getMessages(): Promise<ChatMessage[]> {
   return docs.map(({ _id, ...rest }) => rest as ChatMessage);
 }
 
+export async function getRecentMessagesByPhone(phone: string, limit = 10): Promise<ChatMessage[]> {
+  const db = await getDb();
+  const docs = await db
+    .collection<ChatMessage>('wa_messages')
+    .find({ from: phone })
+    .sort({ timestamp: -1 })
+    .limit(limit)
+    .toArray();
+  // Return oldest-first so history flows chronologically
+  return docs.reverse().map(({ _id, ...rest }) => rest as ChatMessage);
+}
+
 export async function getSystemPrompt(): Promise<string | null> {
   const db  = await getDb();
   const doc = await db.collection('settings').findOne({ key: 'system_prompt' });

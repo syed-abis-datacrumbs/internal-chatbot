@@ -7,7 +7,7 @@ import {
 } from '@/lib/whatsapp';
 import { getAIReply } from '@/lib/gemini';
 import {
-  saveMessage, getSystemPrompt,
+  saveMessage, getSystemPrompt, getRecentMessagesByPhone,
   getActiveEnrollmentSession, saveEnrollmentSession,
   type EnrollmentSession,
 } from '@/lib/redis';
@@ -185,8 +185,18 @@ export async function POST(req: NextRequest) {
       }
 
       // ── 5. Normal Gemini flow ───────────────────────────────────────────
-      const systemPrompt = await getSystemPrompt();
-      const reply = await getAIReply(text, [], systemPrompt);
+      const [systemPrompt, recentMsgs] = await Promise.all([
+        getSystemPrompt(),
+        getRecentMessagesByPhone(from, 10),
+      ]);
+
+      // Build Gemini history from past exchanges (exclude current message)
+      const history = recentMsgs.flatMap(m => [
+        ...(m.text && m.text !== '[image]' ? [{ role: 'user'  as const, parts: [{ text: m.text  }] }] : []),
+        ...(m.reply                         ? [{ role: 'model' as const, parts: [{ text: m.reply }] }] : []),
+      ]);
+
+      const reply = await getAIReply(text, history, systemPrompt);
       await sendWhatsAppMessage(from, reply);
       await saveMessage({ from, text, reply, timestamp: Date.now() });
 
