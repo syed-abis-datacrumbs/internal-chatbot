@@ -1,9 +1,9 @@
 import { google } from 'googleapis';
 import { Readable } from 'stream';
 
-const DRIVE_FOLDER_ID = '1z4DayPSUp7OthWSnGOcohm7T3OqciAVA';
-const SHEET_ID        = '1veKf6wlGw2Fs4f1JRnHQNQ2INxqP7x7NeVAaeucTjOo';
-const SHEET_TAB       = 'Payment info bot';
+const DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID!;
+const SHEET_ID        = process.env.GOOGLE_SHEET_ID!;
+const SHEET_TAB       = process.env.GOOGLE_SHEET_TAB ?? 'Payment info bot';
 
 function auth() {
   return new google.auth.JWT({
