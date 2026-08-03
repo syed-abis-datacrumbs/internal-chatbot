@@ -242,12 +242,25 @@ export default function ChatsUI({ contacts: initial, total }: { contacts: Contac
                         <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 3, textAlign: 'right', paddingRight: 4 }}>Customer</div>
                         <div style={{
                           background: `linear-gradient(135deg, ${NEON}, #3db854)`,
-                          color: '#000', padding: '10px 14px', fontSize: 13, lineHeight: 1.55,
+                          color: '#000',
+                          padding: msg.mediaType === 'image' && msg.mediaUrl ? '5px' : '10px 14px',
+                          fontSize: 13, lineHeight: 1.55,
                           borderRadius: '16px 16px 4px 16px',
                           boxShadow: '0 0 12px rgba(92,228,109,0.25)',
-                          fontWeight: 500,
+                          fontWeight: 500, overflow: 'hidden',
                         }}>
-                          {msg.text}
+                          {msg.mediaType === 'image' && msg.mediaUrl ? (
+                            <a
+                              href={`https://drive.google.com/file/d/${msg.mediaUrl}/view`}
+                              target="_blank" rel="noreferrer"
+                            >
+                              <img
+                                src={`https://drive.google.com/thumbnail?id=${msg.mediaUrl}&sz=w240`}
+                                alt="Payment screenshot"
+                                style={{ display: 'block', maxWidth: 240, maxHeight: 240, borderRadius: 11 }}
+                              />
+                            </a>
+                          ) : msg.text}
                         </div>
                       </div>
                       <div style={{
@@ -272,6 +285,15 @@ export default function ChatsUI({ contacts: initial, total }: { contacts: Contac
                       <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 3, paddingLeft: 4 }}>
                         {msg.text === '' ? 'You (Admin)' : 'DataCrumbs AI'}
                       </div>
+                      {msg.mediaType === 'document' && (
+                        <div style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 6,
+                          background: 'rgba(92,228,109,0.08)', border: `1px solid rgba(92,228,109,0.3)`,
+                          borderRadius: 8, padding: '5px 10px', fontSize: 12, color: NEON,
+                        }}>
+                          📄 Brochure sent
+                        </div>
+                      )}
                       <div style={{
                         background: msg.text === '' ? 'linear-gradient(135deg, #1a3020, #0e1f14)' : 'linear-gradient(180deg, rgba(20,29,25,0.9) 0%, rgba(13,20,17,1) 100%)',
                         border: msg.text === '' ? `1px solid ${NEON}` : `1px solid ${BORDER}`,

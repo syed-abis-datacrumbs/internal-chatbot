@@ -21,6 +21,8 @@ export interface ChatMessage {
   text: string;
   reply: string;
   timestamp: number;
+  mediaUrl?: string;               // Drive file ID (payment screenshot)
+  mediaType?: 'image' | 'document'; // 'document' = bot sent brochure
 }
 
 export async function saveMessage(msg: ChatMessage): Promise<void> {
@@ -37,6 +39,30 @@ export async function getMessages(): Promise<ChatMessage[]> {
     .limit(500)
     .toArray();
   return docs.map(({ _id, ...rest }) => rest as ChatMessage);
+}
+
+// ── Contact Profiles (name + name-ask tracking) ───────────────────────────────
+
+export interface ContactProfile {
+  phone: string;
+  name?: string;
+  nameAsked: boolean;
+  updatedAt: number;
+}
+
+export async function getContactProfile(phone: string): Promise<ContactProfile | null> {
+  const db  = await getDb();
+  const doc = await db.collection('contact_profiles').findOne({ phone });
+  return doc ? (doc as unknown as ContactProfile) : null;
+}
+
+export async function saveContactProfile(data: Partial<ContactProfile> & { phone: string }): Promise<void> {
+  const db = await getDb();
+  await db.collection('contact_profiles').updateOne(
+    { phone: data.phone },
+    { $set: { ...data, updatedAt: Date.now() } },
+    { upsert: true },
+  );
 }
 
 export async function getRecentMessagesByPhone(phone: string, limit = 10): Promise<ChatMessage[]> {
@@ -137,6 +163,7 @@ export async function getStats(): Promise<Stats> {
 
 export interface Lead {
   phone: string;
+  name?: string;
   firstContact: number;
   lastContact: number;
   messageCount: number;
@@ -158,8 +185,19 @@ export async function getLeads(): Promise<Lead[]> {
     { $sort: { lastContact: -1 } },
   ]).toArray();
 
+  const phones = raw.map(r => r._id);
+  const [profiles, enrollments] = await Promise.all([
+    db.collection('contact_profiles').find({ phone: { $in: phones } }).toArray(),
+    db.collection('enrollment_sessions').find({ phone: { $in: phones } }).toArray(),
+  ]);
+
+  const nameMap = new Map<string, string>();
+  for (const e of enrollments) if (e.name) nameMap.set(e.phone as string, e.name as string);
+  for (const p of profiles)    if (p.name) nameMap.set(p.phone as string, p.name as string);
+
   return raw.map(r => ({
     phone:        r._id,
+    name:         nameMap.get(r._id),
     firstContact: r.firstContact,
     lastContact:  r.lastContact,
     messageCount: r.messageCount,

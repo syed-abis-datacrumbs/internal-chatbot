@@ -77,7 +77,14 @@ export default async function LeadsPage() {
                     fontSize: 13, color: NEON,
                   }}>👤</div>
                   <div>
-                    <div style={{ fontWeight: 600, color: '#e5e7eb' }}>+{lead.phone}</div>
+                    {lead.name && (
+                      <div style={{ fontWeight: 700, color: '#fff', fontSize: 13, marginBottom: 1 }}>
+                        {lead.name}
+                      </div>
+                    )}
+                    <div style={{ fontWeight: lead.name ? 400 : 600, color: lead.name ? '#9ca3af' : '#e5e7eb', fontSize: lead.name ? 11 : 13 }}>
+                      +{lead.phone}
+                    </div>
                     <a
                       href={`https://wa.me/${lead.phone}`}
                       target="_blank"
