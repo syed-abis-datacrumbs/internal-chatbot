@@ -7,18 +7,26 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { id }   = await params;
-  const phone    = decodeURIComponent(id);
-  const { status } = await req.json() as { status: 'approved' | 'rejected' };
+  const { id } = await params;
+  const phone  = decodeURIComponent(id);
 
-  if (status !== 'approved' && status !== 'rejected') {
-    return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+  // Read body safely — Next.js 15 body streaming can return empty on some runtimes
+  let status: 'approved' | 'rejected';
+  try {
+    const raw = await req.text();
+    const body = JSON.parse(raw) as { status?: string };
+    if (body.status !== 'approved' && body.status !== 'rejected') {
+      return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+    }
+    status = body.status;
+  } catch {
+    return NextResponse.json({ error: 'Invalid or empty request body' }, { status: 400 });
   }
 
   await updateEnrollmentState(phone, status);
 
   // Update Google Sheet row
-  const all = await getAllEnrollments();
+  const all     = await getAllEnrollments();
   const session = all.find(s => s.phone === phone);
   if (session?.sheetRowIndex && session.sheetRowIndex > 0) {
     await updateSheetStatus(
