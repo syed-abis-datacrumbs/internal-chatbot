@@ -27,6 +27,20 @@ export function wantsBrochure(text: string): boolean {
   return false;
 }
 
+const ENROLLMENT_KEYWORDS = [
+  'enroll', 'register', 'admission', 'join now', 'want to join',
+  'i want to buy', 'wanna buy', 'want to purchase',
+  'i want to pay', 'ready to pay', 'i wanna enroll',
+  'enroll karna', 'join karna', 'register karna',
+  'dakhila', 'sign up', 'signup',
+  'how to enroll', 'how do i enroll', 'how can i join',
+];
+
+export function wantsEnrollment(text: string): boolean {
+  const lower = text.toLowerCase();
+  return ENROLLMENT_KEYWORDS.some(kw => lower.includes(kw));
+}
+
 function apiUrl(path: string) {
   return `https://graph.facebook.com/v25.0/${process.env.PHONE_NUMBER_ID}${path}`;
 }
@@ -44,6 +58,25 @@ export async function sendWhatsAppMessage(to: string, text: string) {
     { messaging_product: 'whatsapp', to, type: 'text', text: { body: text } },
     { headers: headers() }
   );
+}
+
+export async function downloadWhatsAppMedia(
+  mediaId: string,
+): Promise<{ buffer: Buffer; mimeType: string }> {
+  // Step 1: get the temporary download URL
+  const meta = await axios.get(
+    `https://graph.facebook.com/v25.0/${mediaId}`,
+    { headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` } },
+  );
+  const { url, mime_type } = meta.data as { url: string; mime_type: string };
+
+  // Step 2: download the raw bytes
+  const res = await axios.get<ArrayBuffer>(url, {
+    headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` },
+    responseType: 'arraybuffer',
+  });
+
+  return { buffer: Buffer.from(res.data), mimeType: mime_type };
 }
 
 export async function sendWhatsAppDocument(to: string) {

@@ -185,6 +185,66 @@ export async function saveBotConfig(config: BotConfig): Promise<void> {
   );
 }
 
+// ── Enrollment Sessions ────────────────────────────────────────────────────
+
+export type EnrollmentState =
+  | 'collecting_name'
+  | 'collecting_email'
+  | 'awaiting_screenshot'
+  | 'screenshot_received'
+  | 'approved'
+  | 'rejected';
+
+export interface EnrollmentSession {
+  phone: string;
+  state: EnrollmentState;
+  name: string | null;
+  email: string | null;
+  driveFileId: string | null;
+  driveFileUrl: string | null;
+  sheetRowIndex: number | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export async function getActiveEnrollmentSession(phone: string): Promise<EnrollmentSession | null> {
+  const db  = await getDb();
+  const doc = await db.collection('enrollment_sessions').findOne({
+    phone,
+    state: { $nin: ['rejected'] },
+  });
+  return doc ? (doc as unknown as EnrollmentSession) : null;
+}
+
+export async function saveEnrollmentSession(session: EnrollmentSession): Promise<void> {
+  const db = await getDb();
+  await db.collection('enrollment_sessions').updateOne(
+    { phone: session.phone },
+    { $set: { ...session, updatedAt: Date.now() } },
+    { upsert: true },
+  );
+}
+
+export async function getAllEnrollments(): Promise<EnrollmentSession[]> {
+  const db   = await getDb();
+  const docs = await db.collection('enrollment_sessions')
+    .find({})
+    .sort({ createdAt: -1 })
+    .toArray();
+  return docs as unknown as EnrollmentSession[];
+}
+
+export async function updateEnrollmentState(
+  phone: string,
+  state: EnrollmentState,
+): Promise<void> {
+  const db = await getDb();
+  await db.collection('enrollment_sessions').updateOne(
+    { phone },
+    { $set: { state, updatedAt: Date.now() } },
+  );
+}
+
 // ── Brochure ───────────────────────────────────────────────────────────────
 
 export async function saveBrochure(buffer: Buffer, filename: string): Promise<void> {

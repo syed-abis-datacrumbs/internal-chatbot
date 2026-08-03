@@ -467,15 +467,20 @@ export default async function OverviewPage() {
               <div style={{ fontSize: 28, fontWeight: 700, color: '#fff', paddingLeft: 44 }}>{stats.totalContacts}</div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ position: 'relative', width: 56, height: 56, flexShrink: 0 }}>
-                <svg viewBox="0 0 56 56" style={{ width: 56, height: 56, transform: 'rotate(-90deg)' }}>
-                  <circle cx="28" cy="28" r="22" fill="none" stroke="#1a2a22" strokeWidth="8" />
-                  <circle
-                    cx="28" cy="28" r="22" fill="none" stroke={NEON} strokeWidth="8"
-                    strokeDasharray={`${(stats.totalContacts > 0 ? 70 : 5) * 1.382} 138.2`}
-                    style={{ filter: 'drop-shadow(0 0 6px rgba(92,228,109,0.5))' }}
-                  />
-                </svg>
+              {/* Conic-gradient donut — glow on the arc shape, not the container */}
+              <div style={{
+                width: 64, height: 64, borderRadius: '50%', flexShrink: 0,
+                background: `conic-gradient(${NEON} 0% ${stats.totalContacts > 0 ? 70 : 5}%, #1a2a22 ${stats.totalContacts > 0 ? 70 : 5}% 100%)`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                position: 'relative',
+              }}>
+                {/* Circular glow on the arc itself */}
+                <div style={{
+                  position: 'absolute', inset: 0, borderRadius: '50%',
+                  boxShadow: '0 0 15px rgba(92,228,109,0.35)',
+                }} />
+                {/* Inner cutout */}
+                <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#0d1411', zIndex: 1 }} />
               </div>
               <div style={{ fontSize: 11, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#fff' }}>
