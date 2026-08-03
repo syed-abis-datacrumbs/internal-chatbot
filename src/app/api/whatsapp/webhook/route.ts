@@ -27,20 +27,22 @@ export async function GET(req: NextRequest) {
 }
 
 // ── Payment details (sent when email collected) ──────────────────────────────
-const PAYMENT_MSG = `Please complete the payment using any of these methods:
+function buildPaymentMsg() {
+  return `Please complete the payment using any of these methods:
 
-🏦 *HabibMetro Bank*
-Account Title: Data Crumbs
-IBAN: PK61 MPBL 0165 0271 4028 0184
-Account Number: 6016520311714280184
+🏦 *${process.env.PAYMENT_BANK_NAME}*
+Account Title: ${process.env.PAYMENT_BANK_TITLE}
+IBAN: ${process.env.PAYMENT_BANK_IBAN}
+Account Number: ${process.env.PAYMENT_BANK_ACCOUNT}
 
 📱 *Easypaisa / Jazzcash / NayaPay*
-Account Title: Abis Hussain Syed
-Account Number: 0336-2507273
+Account Title: ${process.env.PAYMENT_WALLET_TITLE}
+Account Number: ${process.env.PAYMENT_WALLET_NUMBER}
 
-Fee: *Rs. 7,499/month*
+Fee: *${process.env.PAYMENT_FEE ?? 'Rs. 7,499/month'}*
 
 Once you've paid, please send a *screenshot* here and we'll verify it and get you enrolled! ✅`;
+}
 
 // ── Enrollment state machine ─────────────────────────────────────────────────
 async function runEnrollmentMachine(
@@ -74,7 +76,7 @@ async function runEnrollmentMachine(
       }
       session.email = text.trim().toLowerCase();
       session.state = 'awaiting_screenshot';
-      reply = `Perfect, *${session.name}*! 🎉\n\n${PAYMENT_MSG}`;
+      reply = `Perfect, *${session.name}*! 🎉\n\n${buildPaymentMsg()}`;
       break;
     }
 
@@ -107,7 +109,7 @@ async function runEnrollmentMachine(
         reply = `✅ We've received your payment screenshot!\n\nOur team will verify it and confirm your enrollment by tomorrow. We'll send you a message here once confirmed.\n\nThank you, *${session.name}*! We're excited to have you join DataCrumbs 🚀`;
       } else {
         // Text while waiting for screenshot
-        reply = `Please send a *screenshot* of your payment to proceed.\n\n${PAYMENT_MSG}`;
+        reply = `Please send a *screenshot* of your payment to proceed.\n\n${buildPaymentMsg()}`;
       }
       break;
     }
