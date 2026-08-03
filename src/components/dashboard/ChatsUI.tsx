@@ -54,11 +54,13 @@ function groupByPhone(messages: ChatMessage[]): Contact[] {
 }
 
 export default function ChatsUI({ contacts: initial, total }: { contacts: Contact[]; total: number }) {
-  const [contacts, setContacts] = useState<Contact[]>(initial);
-  const [selected, setSelected] = useState<string | null>(initial[0]?.phone ?? null);
-  const [input,    setInput]    = useState('');
-  const [sending,  setSending]  = useState(false);
-  const [hov,      setHov]      = useState<string | null>(null);
+  const [contacts,    setContacts]    = useState<Contact[]>(initial);
+  const [selected,    setSelected]    = useState<string | null>(initial[0]?.phone ?? null);
+  const [input,       setInput]       = useState('');
+  const [sending,     setSending]     = useState(false);
+  const [hov,         setHov]         = useState<string | null>(null);
+  const [botDisabled, setBotDisabled] = useState<boolean>(false);
+  const [toggling,    setToggling]    = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLInputElement>(null);
 
@@ -70,7 +72,6 @@ export default function ChatsUI({ contacts: initial, total }: { contacts: Contac
         const data = await res.json() as { messages: ChatMessage[] };
         setContacts(prev => {
           const updated = groupByPhone(data.messages);
-          // Only update state if message count actually changed
           const prevTotal = prev.reduce((s, c) => s + c.messages.length, 0);
           const newTotal  = updated.reduce((s, c) => s + c.messages.length, 0);
           return newTotal !== prevTotal ? updated : prev;
@@ -80,10 +81,31 @@ export default function ChatsUI({ contacts: initial, total }: { contacts: Contac
     return () => clearInterval(poll);
   }, []);
 
+  // Fetch bot status whenever selected contact changes
+  useEffect(() => {
+    if (!selected) return;
+    fetch(`/api/contacts/${encodeURIComponent(selected)}/bot`)
+      .then(r => r.json())
+      .then((d: { disabled: boolean }) => setBotDisabled(d.disabled))
+      .catch(() => {});
+  }, [selected]);
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'instant' });
     inputRef.current?.focus();
   }, [selected]);
+
+  async function toggleBot() {
+    if (!selected || toggling) return;
+    setToggling(true);
+    try {
+      const res  = await fetch(`/api/contacts/${encodeURIComponent(selected)}/bot`, { method: 'POST' });
+      const data = await res.json() as { disabled: boolean };
+      setBotDisabled(data.disabled);
+    } finally {
+      setToggling(false);
+    }
+  }
 
   const active = contacts.find(c => c.phone === selected) ?? null;
 
@@ -212,9 +234,37 @@ export default function ChatsUI({ contacts: initial, total }: { contacts: Contac
                   {active.messages.length} exchange{active.messages.length !== 1 ? 's' : ''}
                 </div>
               </div>
-              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <div style={{ width: 7, height: 7, borderRadius: '50%', background: NEON, boxShadow: `0 0 8px rgba(92,228,109,0.6)` }} />
-                <span style={{ fontSize: 11, color: '#6b7280' }}>Active</span>
+              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 14 }}>
+                {/* Bot toggle */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 11, color: '#6b7280' }}>
+                    Bot: <strong style={{ color: botDisabled ? '#ef4444' : NEON }}>{botDisabled ? 'OFF' : 'ON'}</strong>
+                  </span>
+                  <button
+                    onClick={toggleBot}
+                    disabled={toggling}
+                    title={botDisabled ? 'Enable bot for this contact' : 'Disable bot — take over manually'}
+                    style={{
+                      width: 40, height: 22, borderRadius: 11, border: 'none',
+                      background: botDisabled ? '#374151' : NEON,
+                      cursor: toggling ? 'not-allowed' : 'pointer',
+                      position: 'relative', transition: 'background 0.2s',
+                      boxShadow: botDisabled ? 'none' : '0 0 10px rgba(92,228,109,0.4)',
+                    }}
+                  >
+                    <span style={{
+                      position: 'absolute', top: 3,
+                      left: botDisabled ? 3 : 21,
+                      width: 16, height: 16, borderRadius: '50%',
+                      background: '#fff', transition: 'left 0.2s',
+                      display: 'block',
+                    }} />
+                  </button>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ width: 7, height: 7, borderRadius: '50%', background: NEON, boxShadow: `0 0 8px rgba(92,228,109,0.6)` }} />
+                  <span style={{ fontSize: 11, color: '#6b7280' }}>Active</span>
+                </div>
               </div>
             </div>
 
@@ -275,6 +325,7 @@ export default function ChatsUI({ contacts: initial, total }: { contacts: Contac
                     </div>
                   )}
 
+                  {(msg.reply !== '' || msg.text === '') && (
                   <div style={{ display: 'flex', gap: 8 }}>
                     <div style={{
                       width: 30, height: 30, borderRadius: '50%', flexShrink: 0, alignSelf: 'flex-end',
@@ -306,6 +357,7 @@ export default function ChatsUI({ contacts: initial, total }: { contacts: Contac
                       </div>
                     </div>
                   </div>
+                  )}
                 </div>
               ))}
               <div ref={bottomRef} />

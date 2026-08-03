@@ -47,6 +47,7 @@ export interface ContactProfile {
   phone: string;
   name?: string;
   nameAsked: boolean;
+  botDisabled: boolean;
   updatedAt: number;
 }
 

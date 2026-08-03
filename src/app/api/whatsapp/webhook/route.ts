@@ -187,9 +187,21 @@ export async function POST(req: NextRequest) {
       const imageId   = message.image?.id as string | undefined;
       const imageMime = message.image?.mime_type as string | undefined;
 
-      // ── 1. Check for active enrollment session ──────────────────────────
-      const session = await getActiveEnrollmentSession(from);
+      // Fetch session and contact profile in parallel upfront
+      const [session, contactProfile] = await Promise.all([
+        getActiveEnrollmentSession(from),
+        getContactProfile(from),
+      ]);
 
+      // ── 0. Bot toggle — if disabled, save message silently and exit ──────
+      if (contactProfile?.botDisabled) {
+        if (msgType === 'text' && text) {
+          await saveMessage({ from, text, reply: '', timestamp: Date.now() });
+        }
+        return;
+      }
+
+      // ── 1. Check for active enrollment session ──────────────────────────
       if (session) {
         const { reply, mediaUrl } = await runEnrollmentMachine(from, session, msgType, text, imageId, imageMime);
         await sendWhatsAppMessage(from, reply);
@@ -233,14 +245,13 @@ export async function POST(req: NextRequest) {
       }
 
       // ── 5. Normal Gemini flow ───────────────────────────────────────────
-      const [systemPrompt, recentMsgs, profile] = await Promise.all([
+      const [systemPrompt, recentMsgs] = await Promise.all([
         getSystemPrompt(),
         getRecentMessagesByPhone(from, 10),
-        getContactProfile(from),
       ]);
 
       // Detect if previous bot message asked for name and user is now responding
-      if (profile?.nameAsked && !profile?.name && looksLikeName(text)) {
+      if (contactProfile?.nameAsked && !contactProfile?.name && looksLikeName(text)) {
         await saveContactProfile({ phone: from, name: text.trim(), nameAsked: false });
       }
 
@@ -253,7 +264,7 @@ export async function POST(req: NextRequest) {
       let reply = await getAIReply(text, history, systemPrompt);
 
       // Ask for name once — on the user's second message (first real question after greeting)
-      if (!profile?.name && !profile?.nameAsked && recentMsgs.length === 1) {
+      if (!contactProfile?.name && !contactProfile?.nameAsked && recentMsgs.length === 1) {
         reply += '\n\nBy the way, may I know your name? 😊';
         await saveContactProfile({ phone: from, nameAsked: true });
       }
