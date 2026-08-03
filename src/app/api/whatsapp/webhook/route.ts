@@ -152,7 +152,7 @@ async function runEnrollmentMachine(
         session.state = 'screenshot_received';
         mediaUrl = fileId;
 
-        reply = `✅ We've received your payment screenshot!\n\nOur team will verify it and confirm your enrollment by tomorrow. We'll send you a message here once confirmed.\n\nThank you, *${session.name}*! We're excited to have you join DataCrumbs 🚀`;
+        reply = `✅ We've received your payment screenshot!\n\nOur team will verify it and confirm your enrollment by tomorrow. We'll send you a message here once confirmed.\n\nIn the meantime, please sign up on our LMS using the *same email address* you provided (${session.email}):\n🔗 https://lms.datacrumbs.org\n\nThank you, *${session.name}*! We're excited to have you join DataCrumbs 🚀`;
       } else {
         reply = `Please send a *screenshot* of your payment to proceed.\n\n${buildPaymentMsg()}`;
       }
