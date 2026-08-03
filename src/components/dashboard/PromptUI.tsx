@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { CORE_SYSTEM_PROMPT } from '@/lib/knowledge';
 
 const NEON   = '#5ce46d';
 const GLASS  = 'linear-gradient(180deg, rgba(20,29,25,0.8) 0%, rgba(13,20,17,0.9) 100%)';
@@ -20,6 +21,22 @@ export default function PromptUI({ initialPrompt }: { initialPrompt: string }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt }),
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function resetToDefault() {
+    setPrompt(CORE_SYSTEM_PROMPT);
+    setSaving(true);
+    try {
+      await fetch('/api/system-prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: CORE_SYSTEM_PROMPT }),
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -83,6 +100,22 @@ export default function PromptUI({ initialPrompt }: { initialPrompt: string }) {
             >
               {saving ? 'Saving…' : 'Save Prompt'}
             </button>
+            <button
+              onClick={resetToDefault}
+              disabled={saving}
+              style={{
+                padding: '10px 20px', borderRadius: 10,
+                border: '1px solid #202d26',
+                background: 'transparent',
+                color: saving ? '#4b5563' : '#9ca3af',
+                fontWeight: 600, fontSize: 13,
+                cursor: saving ? 'not-allowed' : 'pointer',
+                fontFamily: 'inherit',
+                transition: 'all 0.15s',
+              }}
+            >
+              Reset to Default
+            </button>
             {saved && (
               <span style={{ fontSize: 13, color: NEON, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ fontSize: 16 }}>✓</span> Saved — bot is using the updated prompt.
@@ -97,7 +130,7 @@ export default function PromptUI({ initialPrompt }: { initialPrompt: string }) {
             borderRadius: 10, padding: '12px 16px', marginTop: 20,
             fontSize: 12.5, color: '#9ca3af', lineHeight: 1.6,
           }}>
-            <strong style={{ color: NEON }}>Tip:</strong> Write the persona, rules, and tone. All DataCrumbs knowledge is already embedded — no need to repeat it unless you want to override something.
+            <strong style={{ color: NEON }}>Tip:</strong> This is the complete system prompt the bot uses for every conversation — on WhatsApp and the website chat. Changes save instantly and take effect on the next message.
           </div>
 
         </div>

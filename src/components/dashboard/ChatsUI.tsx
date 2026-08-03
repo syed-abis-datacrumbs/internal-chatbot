@@ -38,6 +38,21 @@ function hueFromPhone(phone: string) {
   return [140, 160, 180, 200, 220, 260, 280][h % 7];
 }
 
+function groupByPhone(messages: ChatMessage[]): Contact[] {
+  const map = new Map<string, ChatMessage[]>();
+  for (const msg of messages) {
+    if (!map.has(msg.from)) map.set(msg.from, []);
+    map.get(msg.from)!.push(msg);
+  }
+  return Array.from(map.entries())
+    .map(([phone, msgs]) => ({
+      phone,
+      messages: msgs.sort((a, b) => b.timestamp - a.timestamp),
+      lastMessage: msgs.reduce((l, m) => m.timestamp > l.timestamp ? m : l),
+    }))
+    .sort((a, b) => b.lastMessage.timestamp - a.lastMessage.timestamp);
+}
+
 export default function ChatsUI({ contacts: initial, total }: { contacts: Contact[]; total: number }) {
   const [contacts, setContacts] = useState<Contact[]>(initial);
   const [selected, setSelected] = useState<string | null>(initial[0]?.phone ?? null);
@@ -46,6 +61,24 @@ export default function ChatsUI({ contacts: initial, total }: { contacts: Contac
   const [hov,      setHov]      = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLInputElement>(null);
+
+  // Poll for new messages every 5 seconds
+  useEffect(() => {
+    const poll = setInterval(async () => {
+      try {
+        const res  = await fetch('/api/messages');
+        const data = await res.json() as { messages: ChatMessage[] };
+        setContacts(prev => {
+          const updated = groupByPhone(data.messages);
+          // Only update state if message count actually changed
+          const prevTotal = prev.reduce((s, c) => s + c.messages.length, 0);
+          const newTotal  = updated.reduce((s, c) => s + c.messages.length, 0);
+          return newTotal !== prevTotal ? updated : prev;
+        });
+      } catch { /* ignore network errors */ }
+    }, 5000);
+    return () => clearInterval(poll);
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'instant' });
