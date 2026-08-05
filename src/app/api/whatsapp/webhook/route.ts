@@ -260,7 +260,7 @@ async function runEnrollmentMachine(
       } else if (msgType === 'text' && text.trim()) {
         const isPaymentQuery = /\b(pay|payment|bank|easypaisa|jazzcash|nayapay|account|iban|fee|receipt|ss|screenshot|transfer|paid)\b/i.test(text);
         if (enrollmentSystemPrompt) {
-          const aiReply = stripEnrollmentNudge(await getAIReply(text, history, enrollmentSystemPrompt));
+          const aiReply = await getAIReply(text, history, enrollmentSystemPrompt);
           if (isPaymentQuery) {
             reply = `${aiReply}\n\nWhen you're ready, please send a *screenshot* of your payment to proceed 😊`;
           } else {
@@ -300,8 +300,7 @@ async function runEnrollmentMachine(
 
         reply = `✅ Thanks! We've received your updated payment screenshot. Our team will verify it and confirm your enrollment shortly.`;
       } else if (msgType === 'text' && text.trim() && enrollmentSystemPrompt) {
-        const aiReply = stripEnrollmentNudge(await getAIReply(text, history, enrollmentSystemPrompt));
-        reply = aiReply;
+        reply = await getAIReply(text, history, enrollmentSystemPrompt);
       } else {
         reply = `We've received your payment screenshot and our team is verifying it! We will update you shortly. 😊`;
       }
@@ -309,7 +308,11 @@ async function runEnrollmentMachine(
     }
 
     case 'approved': {
-      reply = `You're already enrolled in DataCrumbs! Welcome 🎓 If you have any questions, feel free to ask.`;
+      if (msgType === 'text' && text.trim()) {
+        reply = await getAIReply(text, history, CORE_SYSTEM_PROMPT);
+      } else {
+        reply = `You're enrolled in DataCrumbs! Welcome 🎓 If you have any questions, feel free to ask.`;
+      }
       break;
     }
 
