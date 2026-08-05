@@ -121,9 +121,16 @@ async function runEnrollmentMachine(
   imageId?: string,
   imageMime?: string,
   history: GeminiHistory = [],
+  profileName?: string,
 ): Promise<{ reply: string; mediaUrl?: string }> {
   let reply = '';
   let mediaUrl: string | undefined;
+
+  // Resolve user name across session, contact profile, and WhatsApp metadata
+  const candidateName = session.name || profileName;
+  if (!session.name && candidateName && looksLikeName(candidateName)) {
+    session.name = candidateName;
+  }
 
   // Prevent Gemini from adding its own enrollment nudge — the code appends one precisely
   const enrollmentSystemPrompt = `${CORE_SYSTEM_PROMPT}\n\nIMPORTANT: The user is currently mid-enrollment. Answer their question directly and concisely. Do NOT add unnecessary prompts or reminders asking for their name, email, or payment screenshots.`;
@@ -261,8 +268,9 @@ async function runEnrollmentMachine(
         }
         session.state = 'screenshot_received';
 
-        const displayName = (session.name && looksLikeName(session.name)) ? session.name : 'Student';
-        reply = `✅ We've received your image! Our team will review and verify your payment receipt. Once verified, we will confirm your enrollment here.\n\nIn the meantime, please sign up on our LMS using the *same email address* you provided (${session.email}):\n🔗 https://lms.datacrumbs.org\n\nThank you, *${displayName}*! We're excited to have you join DataCrumbs 🚀`;
+        const validName = (session.name && looksLikeName(session.name)) ? session.name : null;
+        const nameGreeting = validName ? `, *${validName}*` : '';
+        reply = `✅ We've received your image! Our team will review and verify your payment receipt. Once verified, we will confirm your enrollment here.\n\nIn the meantime, please sign up on our LMS using the *same email address* you provided (${session.email}):\n🔗 https://lms.datacrumbs.org\n\nThank you${nameGreeting}! We're excited to have you join DataCrumbs 🚀`;
       } else if (msgType === 'text' && text.trim()) {
         const isPaymentQuery = /\b(pay|payment|bank|easypaisa|jazzcash|nayapay|account|iban|fee|receipt|ss|screenshot|transfer|paid)\b/i.test(text);
         if (enrollmentSystemPrompt) {
@@ -336,19 +344,26 @@ export async function POST(req: NextRequest) {
 
   after(async () => {
     try {
-      const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+      const value = body?.entry?.[0]?.changes?.[0]?.value;
+      const message = value?.messages?.[0];
       if (!message) return;
 
-      const from      = message.from as string;
-      const msgType   = message.type as string;
-      const text      = msgType === 'text' ? (message.text?.body as string ?? '') : (message.image?.caption ?? message.document?.caption ?? '');
-      const imageId   = message.image?.id ?? (message.document?.mime_type?.startsWith('image/') || message.document?.filename?.match(/\.(jpg|jpeg|png|webp|heic)$/i) ? message.document?.id : undefined);
-      const imageMime = message.image?.mime_type ?? message.document?.mime_type ?? 'image/jpeg';
+      const from          = message.from as string;
+      const msgType       = message.type as string;
+      const text          = msgType === 'text' ? (message.text?.body as string ?? '') : (message.image?.caption ?? message.document?.caption ?? '');
+      const imageId       = message.image?.id ?? (message.document?.mime_type?.startsWith('image/') || message.document?.filename?.match(/\.(jpg|jpeg|png|webp|heic)$/i) ? message.document?.id : undefined);
+      const imageMime     = message.image?.mime_type ?? message.document?.mime_type ?? 'image/jpeg';
+      const waProfileName = value?.contacts?.[0]?.profile?.name as string | undefined;
 
       const [session, contactProfile] = await Promise.all([
         getActiveEnrollmentSession(from),
         getContactProfile(from),
       ]);
+
+      const profileName = contactProfile?.name || (waProfileName && looksLikeName(waProfileName) ? waProfileName : undefined);
+      if (waProfileName && looksLikeName(waProfileName) && !contactProfile?.name) {
+        await saveContactProfile({ phone: from, name: waProfileName, nameAsked: false });
+      }
 
       // ── 0. Bot toggle ────────────────────────────────────────────────────
       if (contactProfile?.botDisabled) {
@@ -372,7 +387,7 @@ export async function POST(req: NextRequest) {
         ]);
 
         const { reply, mediaUrl } = await runEnrollmentMachine(
-          from, session, msgType, text, imageId, imageMime, history,
+          from, session, msgType, text, imageId, imageMime, history, profileName,
         );
         await sendWhatsAppMessage(from, reply);
         await saveMessage({
