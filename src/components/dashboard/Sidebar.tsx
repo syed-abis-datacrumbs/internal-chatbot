@@ -85,7 +85,7 @@ export default function Sidebar() {
     }}>
       <div style={{ padding: 20 }}>
         {/* Logo */}
-        <div style={{ marginBottom: 28 }}>
+        <div style={{ marginBottom: 20 }}>
           <Image
             src="/logo.png"
             alt="DataCrumbs"
@@ -93,17 +93,6 @@ export default function Sidebar() {
             height={50}
             style={{ objectFit: 'contain', objectPosition: 'left' }}
           />
-          <p style={{ fontSize: 10, color: '#6b7280', marginTop: 4, paddingLeft: 2 }}>Ignite your future</p>
-        </div>
-
-        {/* Status */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24, paddingLeft: 4 }}>
-          <div style={{
-            width: 8, height: 8, borderRadius: '50%',
-            background: NEON,
-            boxShadow: '0 0 12px rgba(92,228,109,0.7)',
-          }} />
-          <span style={{ fontSize: 12, color: '#6b7280' }}>WhatsApp Dashboard</span>
         </div>
 
         {/* Nav */}
@@ -143,50 +132,55 @@ export default function Sidebar() {
       </div>
 
       {/* Bottom profile */}
-      <div style={{ padding: '0 20px 24px' }}>
+      <div style={{ padding: '0 16px 16px' }}>
         <div style={{
           background: 'linear-gradient(180deg, rgba(20,29,25,0.8) 0%, rgba(13,20,17,0.9) 100%)',
           border: '1px solid #202d26',
-          borderRadius: 12, padding: 16,
-          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          borderRadius: 10, padding: '10px 12px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
-          <div style={{ position: 'relative' }}>
-            <div style={{
-              width: 52, height: 52, borderRadius: '50%',
-              background: '#1a251f',
-              border: `2px solid ${NEON}`,
-              boxShadow: '0 0 15px rgba(92,228,109,0.2)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: NEON,
-            }}>
-              <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-              </svg>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ position: 'relative' }}>
+              <div style={{
+                width: 34, height: 34, borderRadius: '50%',
+                background: '#1a251f',
+                border: `1.5px solid ${NEON}`,
+                boxShadow: '0 0 10px rgba(92,228,109,0.2)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: NEON,
+              }}>
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                </svg>
+              </div>
+              <div style={{
+                position: 'absolute', bottom: 0, right: 0,
+                width: 8, height: 8, borderRadius: '50%',
+                background: NEON, border: '1.5px solid #090d0b',
+              }} />
             </div>
-            <div style={{
-              position: 'absolute', bottom: 1, right: 1,
-              width: 11, height: 11, borderRadius: '50%',
-              background: NEON, border: '2px solid #090d0b',
-            }} />
+            <div>
+              <h3 style={{ fontSize: 13, fontWeight: 600, color: '#fff', margin: 0, lineHeight: 1.2 }}>Admin</h3>
+              <p style={{ fontSize: 10, color: NEON, margin: 0, lineHeight: 1.2 }}>DataCrumbs</p>
+            </div>
           </div>
-          <h3 style={{ marginTop: 10, fontSize: 13, fontWeight: 600, color: '#fff' }}>Admin</h3>
-          <p style={{ fontSize: 11, color: NEON, marginTop: 2 }}>DataCrumbs</p>
-          <div style={{ width: '100%', height: 1, background: '#1a251f', margin: '12px 0' }} />
           <button
             onClick={logout}
             onMouseEnter={() => setLogoutHov(true)}
             onMouseLeave={() => setLogoutHov(false)}
+            title="Logout"
             style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              fontSize: 13, color: logoutHov ? '#fff' : '#9ca3af',
-              background: 'none', border: 'none', cursor: 'pointer',
-              fontFamily: 'inherit', transition: 'color 0.15s',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 32, height: 32, borderRadius: 6,
+              fontSize: 12, color: logoutHov ? '#ef4444' : '#9ca3af',
+              background: logoutHov ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
+              border: 'none', cursor: 'pointer',
+              transition: 'all 0.15s',
             }}
           >
-            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
-            Logout
           </button>
         </div>
       </div>
