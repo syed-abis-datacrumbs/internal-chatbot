@@ -106,8 +106,11 @@ async function runEnrollmentMachine(
   switch (session.state) {
 
     case 'collecting_name': {
-      // Image sent before name/email collected — redirect
-      if (msgType === 'image') {
+      // Image sent before name/email — upload to Drive for display only, redirect user
+      if (msgType === 'image' && imageId) {
+        const { buffer, mimeType } = await downloadWhatsAppMedia(imageId);
+        const { fileId } = await uploadScreenshotToDrive(buffer, mimeType, session.email ?? from, Date.now());
+        mediaUrl = fileId;
         const what = session.email ? '*full name*' : '*full name* and *email address*';
         reply = `Please share your ${what} first so we can get you enrolled! 😊`;
         break;
@@ -175,8 +178,11 @@ async function runEnrollmentMachine(
     }
 
     case 'collecting_email': {
-      // Image sent before email — redirect politely
-      if (msgType === 'image') {
+      // Image sent before email — upload to Drive for display only, redirect user
+      if (msgType === 'image' && imageId) {
+        const { buffer, mimeType } = await downloadWhatsAppMedia(imageId);
+        const { fileId } = await uploadScreenshotToDrive(buffer, mimeType, session.email ?? from, Date.now());
+        mediaUrl = fileId;
         reply = `Please share your *email address* first (e.g. name@gmail.com) and then we'll get to the payment screenshot! 😊`;
         break;
       }
