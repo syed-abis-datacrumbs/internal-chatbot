@@ -79,13 +79,20 @@ export async function downloadWhatsAppMedia(
 }
 
 export async function sendWhatsAppDocument(to: string) {
-  // Upload the PDF directly to WhatsApp's media servers — no URL accessibility needed.
-  // This is more reliable than a link because Meta doesn't need to reach our server.
-  const { readFileSync } = await import('fs');
-  const { join } = await import('path');
+  // public/ files are on Vercel's CDN, not the Lambda filesystem.
+  // Fetch from own CDN URL → upload to WhatsApp media servers → send by media ID.
+  // VERCEL_URL is auto-set by Vercel for every deployment (always correct).
+  const baseUrl =
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
+    process.env.NEXT_PUBLIC_APP_URL;
+  if (!baseUrl) throw new Error('Cannot determine app URL to fetch brochure');
 
-  const filePath = join(process.cwd(), 'public', 'brochure.pdf');
-  const fileBuffer = readFileSync(filePath);
+  const brochureUrl = `${baseUrl}/brochure.pdf`;
+  console.log('[brochure] fetching from CDN:', brochureUrl);
+
+  const fileRes = await fetch(brochureUrl);
+  if (!fileRes.ok) throw new Error(`CDN fetch failed (${fileRes.status}): ${brochureUrl}`);
+  const fileBuffer = Buffer.from(await fileRes.arrayBuffer());
 
   const form = new FormData();
   form.append('file', new Blob([fileBuffer], { type: 'application/pdf' }), BROCHURE_FILENAME);
@@ -107,6 +114,7 @@ export async function sendWhatsAppDocument(to: string) {
   }
 
   const { id: mediaId } = await uploadRes.json() as { id: string };
+  console.log('[brochure] uploaded to WhatsApp, mediaId:', mediaId);
 
   await axios.post(
     apiUrl('/messages'),
@@ -114,10 +122,7 @@ export async function sendWhatsAppDocument(to: string) {
       messaging_product: 'whatsapp',
       to,
       type: 'document',
-      document: {
-        id: mediaId,
-        filename: BROCHURE_FILENAME,
-      },
+      document: { id: mediaId, filename: BROCHURE_FILENAME },
     },
     { headers: headers() }
   );
