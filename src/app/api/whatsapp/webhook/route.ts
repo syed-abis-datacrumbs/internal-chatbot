@@ -6,6 +6,7 @@ import {
   downloadWhatsAppMedia,
 } from '@/lib/whatsapp';
 import { getAIReply } from '@/lib/gemini';
+import { CORE_SYSTEM_PROMPT } from '@/lib/knowledge';
 import {
   saveMessage, getSystemPrompt, getRecentMessagesByPhone,
   getActiveEnrollmentSession, saveEnrollmentSession,
@@ -114,9 +115,8 @@ async function runEnrollmentMachine(
   let mediaUrl: string | undefined;
 
   // Prevent Gemini from adding its own enrollment nudge — the code appends one precisely
-  const enrollmentSystemPrompt = systemPrompt
-    ? `${systemPrompt}\n\nIMPORTANT: The user is currently mid-enrollment. Answer their question directly and concisely. Do NOT add unnecessary prompts or reminders asking for their name, email, or payment screenshots.`
-    : null;
+  const baseSystemPrompt = systemPrompt ?? CORE_SYSTEM_PROMPT;
+  const enrollmentSystemPrompt = `${baseSystemPrompt}\n\nIMPORTANT: The user is currently mid-enrollment. Answer their question directly and concisely. Do NOT add unnecessary prompts or reminders asking for their name, email, or payment screenshots.`;
 
   switch (session.state) {
 
