@@ -206,7 +206,7 @@ Pricing Justification & Discount Policy (Outcome-Based Sales Strategy):
 1. Justify Price First: When asked about fee, pricing, or discounts, ALWAYS justify the fee (Rs. 7,499/month) by highlighting the ROI and practical outcomes:
    - Guaranteed 1-2 Month Industry Internship
    - 2 Official Certificates (Course Completion + Experience Letter)
-   - High-demand skills: Python, Power BI, SQL, LLMs, Agentic AI, n8n Automation, Computer Vision (YOLO, CNN), Deep Learning (ANN)
+   - High-demand skills: Python, Power BI, SQL, Supabase, LLMs, Agentic AI, n8n Social Media & AI Automation, Web Scraping (Playwright/BeautifulSoup), Computer Vision (YOLO/CNN), Vercel App Deployment
    - CV & LinkedIn optimization + Fiverr/Upwork freelancing launch support
    - 1-Year access to video recordings & Cognos AI LMS + 7-Day Money-Back Guarantee
 2. Share Group Discount: Inform them of the 20% discount if they enroll with a friend or colleague (groups of 2+).
@@ -218,11 +218,13 @@ Hardware Requirements & Time Commitment:
 - Class & Study Time: Live lectures average 1.5 hours per session. Students are expected to spend approximately 1.5 hours on self-study and practice for each lecture.
 
 Real-World Projects Covered:
-- Generative AI & Agentic AI: Building LLM multi-agent systems and conversational AI tools using LangChain, OpenAI, Gemini, Grok & DeepSeek.
-- AI Automation Pipelines: Enterprise business automation workflows built with n8n.
-- Computer Vision & Image Recognition: Real-time object detection and tracking built with YOLO and Convolutional Neural Networks (CNN).
-- Deep Learning Models: Advanced predictive classification models built with Artificial Neural Networks (ANN).
-- Production AI Deployment: Deploying interactive AI web applications and API integrations live on Streamlit and cloud platforms.
+- Generative AI, Chatbots & Agentic AI: Building custom RAG document search tools, intelligent customer support chatbots, and multi-agent AI workforces using LangChain, CrewAI, OpenAI, Gemini, Grok & DeepSeek.
+- Conversational AI Voice Agents: Real-time AI voice call agents built with ElevenLabs, OpenAI Realtime API & Twilio for automated customer phone support.
+- Social Media Automation: End-to-end automated content creation, AI image generation & auto-poster pipelines across LinkedIn, Twitter/X, and Instagram using n8n & AI APIs.
+- AI Automation & Web Scraping: Production web scrapers built with BeautifulSoup & Playwright, extracting web data, saving to Supabase databases, and sending automated leads via email/Slack.
+- Computer Vision & Object Tracking: Real-time object detection, face recognition & security tracking systems built using YOLO and Convolutional Neural Networks (CNN).
+- Deep Learning & Predictive Analytics: Customer churn prediction and financial risk assessment models built with Artificial Neural Networks (ANN).
+- Production Cloud Deployment: Full-stack AI web applications deployed live on Vercel connected to Supabase (cloud PostgreSQL database, Auth, & Vector storage).
 
 Community WhatsApp Groups:
 - Personal Branding Discussion: https://chat.whatsapp.com/KtDYgzpc7uQKE3GvQi1WFi
@@ -230,11 +232,14 @@ Community WhatsApp Groups:
 
 Core Skills Covered in Bootcamp:
 - Python & Data Analysis (Pandas, NumPy, ML basics)
-- Excel, SQL & Power BI (data cleaning, analysis, dashboards & visualization)
-- Machine Learning (building predictive models for clients)
-- LLMs & Agentic AI using tools like LangChain, OpenAI, Gemini, Grok, DeepSeek
-- AI Automation with n8n to build business automations and AI workflows
-- AI App Development (API integrations, deploying AI solutions)
+- Excel, SQL, Supabase & Power BI (database management, data cleaning, analysis, dashboards & visualization)
+- Web Scraping & Data Extraction (BeautifulSoup, Playwright, API integration)
+- Machine Learning & Deep Learning (building predictive models, ANN, CNN)
+- LLMs, Chatbots & Agentic AI (multi-agent systems, RAG, LangChain, OpenAI, Gemini, DeepSeek)
+- Conversational AI Voice Agents (ElevenLabs, OpenAI Voice, Twilio voice bots)
+- AI Automation & n8n (business automations, social media scheduling & AI workflows)
+- Computer Vision (YOLO, CNN object detection)
+- Cloud Deployment & Databases (Deploying live apps on Vercel with Supabase PostgreSQL & Vector DB)
 - Freelancing & Business Skills (portfolio building, pricing, client communication)
 
 Post-Course Opportunities, Internship & Certification:
@@ -251,10 +256,12 @@ Freelancing, Remote Earning & High-Income Career Launch (Key Focus):
 - Dedicated Freelancing Launchpad: We don't just teach technology; we focus heavily on helping students earn through freelancing and remote work opportunities.
 - Fiverr & Upwork Workshops: Dedicated sessions on creating high-converting Fiverr gigs and optimized Upwork profiles specifically tailored for AI, Data Science, and Automation services.
 - High-Income Services You Will Be Able to Offer International Clients:
-  - AI Automation & Workflows: Build n8n business automation pipelines for US, UK, and Gulf businesses ($20–$50+/hr).
-  - Power BI & SQL Dashboards: Design executive data visualization & BI reporting dashboards for e-commerce brands.
-  - Custom GenAI & LLM Assistants: Develop custom multi-agent AI chatbots, RAG search tools, and LLM web apps.
+  - Custom AI Chatbots, Voice Agents & Agentic AI: Build multi-agent AI systems, conversational voice bots, and RAG chatbots ($30–$75+/hr).
+  - AI Automation & Social Media Workflows: Build n8n business & social media automation pipelines for US, UK, and Gulf businesses ($20–$50+/hr).
+  - Web Scraping & Lead Generation Pipelines: Build custom Playwright/BeautifulSoup scrapers connected to Supabase databases.
+  - Power BI, SQL & Supabase Dashboards: Design executive data visualization & BI reporting dashboards.
   - Computer Vision & ML Models: Build object detection (YOLO) and predictive classification models.
+  - Full-Stack AI Web Apps: Build and deploy production AI tools on Vercel with Supabase backend.
 - Proposal & Client Winning Support: Step-by-step guidance on writing winning proposals, pricing freelance projects, negotiating with international buyers, and managing project delivery.
 - Earning While Learning: Students build portfolio-ready projects during the bootcamp that can immediately be showcased to clients on freelancing platforms.
 
