@@ -10,7 +10,6 @@ const BROCHURE_KEYWORDS = [
   'course outline', 'syllabus', 'course content', 'curriculum',
   'send me info', 'share info', 'detailed info',
   'what is included', "what's included",
-  'internship', 'internship details', 'with internship',
   'brochar', 'brouchar', 'brochar bhejo', 'broucher bhejo',
   'details bhejo', 'details send karo',
   'details chahiye', 'info chahiye', 'send karo',

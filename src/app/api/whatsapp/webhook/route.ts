@@ -151,9 +151,13 @@ async function runEnrollmentMachine(
     case 'collecting_name': {
       // Image sent before name/email — upload to Drive for display only, redirect user
       if (msgType === 'image' && imageId) {
-        const { buffer, mimeType } = await downloadWhatsAppMedia(imageId);
-        const { fileId } = await uploadScreenshotToDrive(buffer, mimeType, session.email ?? from, Date.now());
-        mediaUrl = fileId;
+        try {
+          const { buffer, mimeType } = await downloadWhatsAppMedia(imageId);
+          const { fileId } = await uploadScreenshotToDrive(buffer, mimeType, session.email ?? from, Date.now());
+          mediaUrl = fileId;
+        } catch (err) {
+          console.error('Drive upload failed (collecting_name):', err instanceof Error ? err.message : err);
+        }
         const what = session.email ? '*full name*' : '*full name* and *email address*';
         reply = `Please share your ${what} first so we can get you enrolled! 😊`;
         break;
@@ -220,9 +224,13 @@ async function runEnrollmentMachine(
     case 'collecting_email': {
       // Image sent before email — upload to Drive for display only, redirect user
       if (msgType === 'image' && imageId) {
-        const { buffer, mimeType } = await downloadWhatsAppMedia(imageId);
-        const { fileId } = await uploadScreenshotToDrive(buffer, mimeType, session.email ?? from, Date.now());
-        mediaUrl = fileId;
+        try {
+          const { buffer, mimeType } = await downloadWhatsAppMedia(imageId);
+          const { fileId } = await uploadScreenshotToDrive(buffer, mimeType, session.email ?? from, Date.now());
+          mediaUrl = fileId;
+        } catch (err) {
+          console.error('Drive upload failed (collecting_email):', err instanceof Error ? err.message : err);
+        }
         reply = `Please share your *email address* first (e.g. name@gmail.com) and then we'll get to the payment screenshot! 😊`;
         break;
       }
@@ -410,15 +418,26 @@ export async function POST(req: NextRequest) {
         return;
       }
 
-      // ── 2. Only handle text from here on ─────────────────────────────────
-      if (msgType !== 'text') return;
+      // ── 2. Save non-text messages so they appear in the dashboard ────────
+      if (msgType !== 'text') {
+        if (msgType === 'image' || msgType === 'document') {
+          await saveMessage({ from, text: '[image]', reply: '', timestamp: Date.now() });
+        }
+        return;
+      }
 
       // ── 3. Brochure shortcut ─────────────────────────────────────────────
       if (wantsBrochure(text)) {
         const reply = 'Here is our complete Data Science & AI Bootcamp brochure! It covers the full curriculum, pricing, internship details, and instructor profiles. Let me know if you have any questions 😊';
-        await sendWhatsAppDocument(from);
+        let sentDoc = false;
+        try {
+          await sendWhatsAppDocument(from);
+          sentDoc = true;
+        } catch (err) {
+          console.error('Failed to send brochure document:', err instanceof Error ? err.message : err);
+        }
         await sendWhatsAppMessage(from, reply);
-        await saveMessage({ from, text, reply, timestamp: Date.now(), mediaType: 'document' });
+        await saveMessage({ from, text, reply, timestamp: Date.now(), ...(sentDoc ? { mediaType: 'document' as const } : {}) });
         return;
       }
 
