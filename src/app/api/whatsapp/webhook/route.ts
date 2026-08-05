@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
   return new NextResponse('Forbidden', { status: 403 });
 }
 
-// ── Payment details (sent when email collected) ──────────────────────────────
+// ── Payment details ───────────────────────────────────────────────────────────
 function buildPaymentMsg() {
   return `Please complete the payment using any of these methods:
 
@@ -45,14 +45,25 @@ Fee: *${process.env.PAYMENT_FEE ?? 'Rs. 7,499/month'}*
 Once you've paid, please send a *screenshot* here and we'll verify it and get you enrolled! ✅`;
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 const EMAIL_RE = /[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+/;
+
+// Strip common preamble phrases so "My name is John" → "John"
+function cleanName(raw: string): string {
+  return raw
+    .replace(/\b(my name is|i am|i'm|name is|call me|and email is|email is|email:)\b/gi, '')
+    .replace(/@\S*/g, '')   // remove stray @fragments (e.g. from double-@ typos)
+    .replace(EMAIL_RE, '')  // remove any leftover email fragment
+    .replace(/[,;|]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 function extractEmailAndName(text: string): { email: string | null; name: string | null } {
   const emailMatch = text.match(EMAIL_RE);
   const email = emailMatch ? emailMatch[0].toLowerCase() : null;
-  const nameRaw = text.replace(EMAIL_RE, '').replace(/[,;|]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const nameRaw = cleanName(text.replace(EMAIL_RE, ''));
   const name = nameRaw.length > 0 ? nameRaw : null;
   return { email, name };
 }
@@ -64,7 +75,16 @@ function looksLikeName(text: string): boolean {
   return !questionWords.test(t) && t.split(/\s+/).length <= 5;
 }
 
-// ── Enrollment state machine ─────────────────────────────────────────────────
+// True if the message looks like a question the AI should answer
+function isQuestion(text: string): boolean {
+  if (text.trim().endsWith('?')) return true;
+  const questionWords = /\b(what|how|when|where|why|tell|is|are|do|can|could|would|please|about|kya|kab|kaisa|bata|mujhe|fee|timing|course|duration|internship)\b/i;
+  return questionWords.test(text);
+}
+
+type GeminiHistory = { role: 'user' | 'model'; parts: { text: string }[] }[];
+
+// ── Enrollment state machine ──────────────────────────────────────────────────
 async function runEnrollmentMachine(
   from: string,
   session: EnrollmentSession,
@@ -72,6 +92,8 @@ async function runEnrollmentMachine(
   text: string,
   imageId?: string,
   imageMime?: string,
+  systemPrompt?: string | null,
+  history: GeminiHistory = [],
 ): Promise<{ reply: string; mediaUrl?: string }> {
   let reply = '';
   let mediaUrl: string | undefined;
@@ -79,11 +101,16 @@ async function runEnrollmentMachine(
   switch (session.state) {
 
     case 'collecting_name': {
-      // If email was already saved in a previous turn, only name is missing
+      // Email already saved — only need name now
       if (session.email) {
-        const nameOnly = text.replace(EMAIL_RE, '').replace(/[,;|]+/g, ' ').trim();
-        if (!nameOnly) {
-          reply = 'Please share your *full name* to continue.';
+        const nameOnly = cleanName(text);
+        if (!nameOnly || !looksLikeName(nameOnly)) {
+          if (isQuestion(text) && systemPrompt) {
+            const aiReply = await getAIReply(text, history, systemPrompt);
+            reply = `${aiReply}\n\nAlso, could you share your *full name* to continue with enrollment? 😊`;
+          } else {
+            reply = 'Please share your *full name* to continue.\n\nExample: _John Doe_';
+          }
           break;
         }
         session.name  = nameOnly;
@@ -92,25 +119,45 @@ async function runEnrollmentMachine(
         break;
       }
 
-      // Try to extract both name and email from this message
+      // Try to extract both name and email
       const { email, name } = extractEmailAndName(text);
 
       if (name && email) {
-        session.name  = name;
-        session.email = email;
-        session.state = 'awaiting_screenshot';
-        reply = `Perfect, *${session.name}*! 🎉\n\n${buildPaymentMsg()}`;
+        if (!looksLikeName(name)) {
+          // Email found but extracted name is still messy — save email, ask for name
+          session.email = email;
+          reply = `Got your email! 😊 Could you share your *full name*?\n\nExample: _John Doe_`;
+        } else {
+          session.name  = name;
+          session.email = email;
+          session.state = 'awaiting_screenshot';
+          reply = `Perfect, *${session.name}*! 🎉\n\n${buildPaymentMsg()}`;
+        }
       } else if (email && !name) {
-        // Got email only — save it, ask for name
         session.email = email;
-        reply = `Got your email! 😊 Could you also share your *full name*, please?`;
+        reply = `Got your email! 😊 Could you also share your *full name*, please?\n\nExample: _John Doe_`;
       } else if (name && !email) {
-        // Got name only — save it, ask for email
-        session.name  = name;
-        session.state = 'collecting_email';
-        reply = `Thanks *${session.name}*! 😊 Now please share your *email address*.`;
+        if (!looksLikeName(name)) {
+          // Doesn't look like a name — answer if question, otherwise ask again
+          if (isQuestion(text) && systemPrompt) {
+            const aiReply = await getAIReply(text, history, systemPrompt);
+            reply = `${aiReply}\n\nAlso, please share your *full name* and *email address* to get enrolled 😊`;
+          } else {
+            reply = `Please share your *full name* and *email address* to continue.\n\nExample: _John Doe, johndoe@gmail.com_`;
+          }
+        } else {
+          session.name  = name;
+          session.state = 'collecting_email';
+          reply = `Thanks *${session.name}*! 😊 Now please share your *email address*.`;
+        }
       } else {
-        reply = `Please share your *full name* and *email address* to continue.\n\nExample: _John Doe, johndoe@gmail.com_`;
+        // Neither — answer question if applicable, then nudge
+        if (isQuestion(text) && systemPrompt) {
+          const aiReply = await getAIReply(text, history, systemPrompt);
+          reply = `${aiReply}\n\nAlso, please share your *full name* and *email address* to get enrolled 😊`;
+        } else {
+          reply = `Please share your *full name* and *email address* to continue.\n\nExample: _John Doe, johndoe@gmail.com_`;
+        }
       }
       break;
     }
@@ -118,7 +165,13 @@ async function runEnrollmentMachine(
     case 'collecting_email': {
       const { email } = extractEmailAndName(text);
       if (!email) {
-        reply = 'Please share a valid *email address* (e.g. name@gmail.com).';
+        // Answer questions instead of just repeating "share your email"
+        if (isQuestion(text) && systemPrompt) {
+          const aiReply = await getAIReply(text, history, systemPrompt);
+          reply = `${aiReply}\n\nAlso, please share your *email address* to continue with enrollment 😊`;
+        } else {
+          reply = 'Please share a valid *email address* (e.g. name@gmail.com).';
+        }
         break;
       }
       session.email = email;
@@ -181,19 +234,18 @@ export async function POST(req: NextRequest) {
       const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
       if (!message) return;
 
-      const from    = message.from as string;
-      const msgType = message.type as string;
-      const text    = msgType === 'text' ? (message.text?.body as string ?? '') : '';
+      const from      = message.from as string;
+      const msgType   = message.type as string;
+      const text      = msgType === 'text' ? (message.text?.body as string ?? '') : '';
       const imageId   = message.image?.id as string | undefined;
       const imageMime = message.image?.mime_type as string | undefined;
 
-      // Fetch session and contact profile in parallel upfront
       const [session, contactProfile] = await Promise.all([
         getActiveEnrollmentSession(from),
         getContactProfile(from),
       ]);
 
-      // ── 0. Bot toggle — if disabled, save message silently and exit ──────
+      // ── 0. Bot toggle ────────────────────────────────────────────────────
       if (contactProfile?.botDisabled) {
         if (msgType === 'text' && text) {
           await saveMessage({ from, text, reply: '', timestamp: Date.now() });
@@ -201,9 +253,22 @@ export async function POST(req: NextRequest) {
         return;
       }
 
-      // ── 1. Check for active enrollment session ──────────────────────────
+      // ── 1. Active enrollment session ─────────────────────────────────────
       if (session) {
-        const { reply, mediaUrl } = await runEnrollmentMachine(from, session, msgType, text, imageId, imageMime);
+        // Fetch AI context only for states where the user might ask questions
+        const needsAI = session.state === 'collecting_name' || session.state === 'collecting_email';
+        const [systemPrompt, recentMsgs] = needsAI
+          ? await Promise.all([getSystemPrompt(), getRecentMessagesByPhone(from, 10)])
+          : [null, [] as Awaited<ReturnType<typeof getRecentMessagesByPhone>>];
+
+        const history: GeminiHistory = recentMsgs.flatMap(m => [
+          ...(m.text && m.text !== '[image]' ? [{ role: 'user'  as const, parts: [{ text: m.text  }] }] : []),
+          ...(m.reply                         ? [{ role: 'model' as const, parts: [{ text: m.reply }] }] : []),
+        ]);
+
+        const { reply, mediaUrl } = await runEnrollmentMachine(
+          from, session, msgType, text, imageId, imageMime, systemPrompt, history,
+        );
         await sendWhatsAppMessage(from, reply);
         await saveMessage({
           from, text: text || '[image]', reply, timestamp: Date.now(),
@@ -212,10 +277,10 @@ export async function POST(req: NextRequest) {
         return;
       }
 
-      // ── 2. Only handle text from here on ───────────────────────────────
+      // ── 2. Only handle text from here on ─────────────────────────────────
       if (msgType !== 'text') return;
 
-      // ── 3. Brochure shortcut ────────────────────────────────────────────
+      // ── 3. Brochure shortcut ─────────────────────────────────────────────
       if (wantsBrochure(text)) {
         const reply = 'Here is our complete Data Science & AI Bootcamp brochure! It covers the full curriculum, pricing, internship details, and instructor profiles. Let me know if you have any questions 😊';
         await sendWhatsAppDocument(from);
@@ -224,7 +289,7 @@ export async function POST(req: NextRequest) {
         return;
       }
 
-      // ── 4. Enrollment intent → start state machine ──────────────────────
+      // ── 4. Enrollment intent ──────────────────────────────────────────────
       if (wantsEnrollment(text)) {
         const newSession: EnrollmentSession = {
           phone:         from,
@@ -244,26 +309,23 @@ export async function POST(req: NextRequest) {
         return;
       }
 
-      // ── 5. Normal Gemini flow ───────────────────────────────────────────
+      // ── 5. Normal Gemini flow ─────────────────────────────────────────────
       const [systemPrompt, recentMsgs] = await Promise.all([
         getSystemPrompt(),
         getRecentMessagesByPhone(from, 10),
       ]);
 
-      // Detect if previous bot message asked for name and user is now responding
       if (contactProfile?.nameAsked && !contactProfile?.name && looksLikeName(text)) {
         await saveContactProfile({ phone: from, name: text.trim(), nameAsked: false });
       }
 
-      // Build Gemini history from past exchanges
-      const history = recentMsgs.flatMap(m => [
+      const history: GeminiHistory = recentMsgs.flatMap(m => [
         ...(m.text && m.text !== '[image]' ? [{ role: 'user'  as const, parts: [{ text: m.text  }] }] : []),
         ...(m.reply                         ? [{ role: 'model' as const, parts: [{ text: m.reply }] }] : []),
       ]);
 
       let reply = await getAIReply(text, history, systemPrompt);
 
-      // Ask for name once — on the user's second message (first real question after greeting)
       if (!contactProfile?.name && !contactProfile?.nameAsked && recentMsgs.length === 1) {
         reply += '\n\nBy the way, may I know your name? 😊';
         await saveContactProfile({ phone: from, nameAsked: true });
