@@ -79,11 +79,13 @@ export async function downloadWhatsAppMedia(
 }
 
 export async function sendWhatsAppDocument(to: string) {
-  // NEXT_PUBLIC_APP_URL must be set in Vercel env vars; VERCEL_URL is the auto fallback
+  // Use the static file directly — avoids the /api/brochure redirect chain
+  // which fails when NEXT_PUBLIC_APP_URL is unset (NextResponse.redirect throws).
+  // VERCEL_URL is set automatically by Vercel for every deployment.
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ||
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
-  if (!appUrl) throw new Error('NEXT_PUBLIC_APP_URL is not set — cannot send brochure');
+  if (!appUrl) throw new Error('No app URL available — cannot send brochure');
   await axios.post(
     apiUrl('/messages'),
     {
@@ -91,7 +93,7 @@ export async function sendWhatsAppDocument(to: string) {
       to,
       type: 'document',
       document: {
-        link: `${appUrl}/api/brochure`,
+        link: `${appUrl}/brochure.pdf`,
         filename: BROCHURE_FILENAME,
       },
     },
