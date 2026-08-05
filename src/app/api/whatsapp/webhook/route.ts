@@ -85,15 +85,17 @@ function isQuestion(text: string): boolean {
 type GeminiHistory = { role: 'user' | 'model'; parts: { text: string }[] }[];
 
 // Strip any enrollment nudge Gemini added (system prompt tells it to redirect),
-// so the code can append exactly one nudge instead of getting a duplicate.
+// so the code can control when nudges are appended.
 function stripEnrollmentNudge(text: string): string {
   return text
     // "Also, please share your *email address*..." / "Please provide your full name..."
-    .replace(/\n+(Also,?\s*)?(please\s+)?(share|provide|send)\s+your\s+[\*_]*(full\s+name|name|email\s+address|email)[\*_]*.*/gi, '')
+    .replace(/\n+(Also,?\s*)?(please\s+)?(share|provide|send)\s+your\s+[\*_]*(full\s+name|name|email\s+address|email|payment\s+screenshot|screenshot)[\*_]*.*/gi, '')
     // "To continue/proceed, please share your name/email..."
-    .replace(/\n+To\s+(continue|proceed|get\s+started)[^.!?]*?(share|provide|send)\s+your\s+(name|email).*/gi, '')
+    .replace(/\n+To\s+(continue|proceed|get\s+started)[^.!?]*?(share|provide|send)\s+your\s+(name|email|screenshot).*/gi, '')
     // "You can also share/provide your email..."
-    .replace(/\n+You\s+can\s+(also\s+)?(share|provide|send)\s+your\s+(name|email).*/gi, '')
+    .replace(/\n+You\s+can\s+(also\s+)?(share|provide|send)\s+your\s+(name|email|screenshot).*/gi, '')
+    // "When you're ready, please send a screenshot..."
+    .replace(/\n+When\s+you're\s+ready[^.!?]*?send\s+a\s+screenshot.*/gi, '')
     .trim();
 }
 
@@ -113,7 +115,7 @@ async function runEnrollmentMachine(
 
   // Prevent Gemini from adding its own enrollment nudge — the code appends one precisely
   const enrollmentSystemPrompt = systemPrompt
-    ? `${systemPrompt}\n\nIMPORTANT: The user is currently mid-enrollment. Answer their question only. Do NOT remind them to share their name or email in this response — that nudge is handled separately.`
+    ? `${systemPrompt}\n\nIMPORTANT: The user is currently mid-enrollment. Answer their question directly and concisely. Do NOT add unnecessary prompts or reminders asking for their name, email, or payment screenshots.`
     : null;
 
   switch (session.state) {
@@ -216,8 +218,7 @@ async function runEnrollmentMachine(
       break;
     }
 
-    case 'awaiting_screenshot':
-    case 'screenshot_received': {
+    case 'awaiting_screenshot': {
       if (msgType === 'image' && imageId) {
         const { buffer, mimeType } = await downloadWhatsAppMedia(imageId);
         const ts = Date.now();
@@ -242,12 +243,41 @@ async function runEnrollmentMachine(
         mediaUrl = fileId;
 
         reply = `✅ We've received your payment screenshot!\n\nOur team will verify it and confirm your enrollment by tomorrow. We'll send you a message here once confirmed.\n\nIn the meantime, please sign up on our LMS using the *same email address* you provided (${session.email}):\n🔗 https://lms.datacrumbs.org\n\nThank you, *${session.name}*! We're excited to have you join DataCrumbs 🚀`;
-      } else if (msgType === 'text' && text.trim() && enrollmentSystemPrompt) {
-        // Answer questions / conversational messages, then nudge for screenshot
-        const aiReply = stripEnrollmentNudge(await getAIReply(text, history, enrollmentSystemPrompt));
-        reply = `${aiReply}\n\nWhen you're ready, please send a *screenshot* of your payment to proceed 😊`;
+      } else if (msgType === 'text' && text.trim()) {
+        const isPaymentQuery = /\b(pay|payment|bank|easypaisa|jazzcash|nayapay|account|iban|fee|receipt|ss|screenshot|transfer|paid)\b/i.test(text);
+        if (enrollmentSystemPrompt) {
+          const aiReply = stripEnrollmentNudge(await getAIReply(text, history, enrollmentSystemPrompt));
+          if (isPaymentQuery) {
+            reply = `${aiReply}\n\nWhen you're ready, please send a *screenshot* of your payment to proceed 😊`;
+          } else {
+            reply = aiReply;
+          }
+        } else {
+          reply = `Please send a *screenshot* of your payment to proceed.\n\n${buildPaymentMsg()}`;
+        }
       } else {
         reply = `Please send a *screenshot* of your payment to proceed.\n\n${buildPaymentMsg()}`;
+      }
+      break;
+    }
+
+    case 'screenshot_received': {
+      if (msgType === 'image' && imageId) {
+        const { buffer, mimeType } = await downloadWhatsAppMedia(imageId);
+        const ts = Date.now();
+        const { fileId, webViewLink } = await uploadScreenshotToDrive(
+          buffer, mimeType, session.email!, ts,
+        );
+        session.driveFileId  = fileId;
+        session.driveFileUrl = webViewLink;
+        mediaUrl = fileId;
+
+        reply = `✅ Thanks! We've received your updated payment screenshot. Our team will verify it and confirm your enrollment shortly.`;
+      } else if (msgType === 'text' && text.trim() && enrollmentSystemPrompt) {
+        const aiReply = stripEnrollmentNudge(await getAIReply(text, history, enrollmentSystemPrompt));
+        reply = aiReply;
+      } else {
+        reply = `We've received your payment screenshot and our team is verifying it! We will update you shortly. 😊`;
       }
       break;
     }

@@ -88,13 +88,18 @@ Business Intelligence Analyst, Data Engineer`,
   {
     id: 'who-is-this-for',
     topic: 'Who Should Join and Who Should Not',
-    text: `Ideal for:
+    text: `Age Requirement:
+- The bootcamp is designed for students and professionals aged 16 and above. Children/individuals under 16 are not eligible.
+
+Ideal for:
+- Anyone aged 16 and above wanting to learn AI & Data Science
 - Career switchers wanting job-ready skills fast
 - Freelancers building automation portfolios
 - Professionals who feel threatened by AI taking over their jobs
 - Complete beginners with zero coding background
 
 Not suitable for:
+- Individuals under 16 years old
 - People looking for free or surface-level content
 - Those who avoid hands-on projects
 - Individuals who avoid structured deadlines
@@ -204,6 +209,10 @@ Pricing Justification & Discount Policy (Outcome-Based Sales Strategy):
 2. Share Group Discount: Inform them of the 20% discount if they enroll with a friend or colleague (groups of 2+).
 3. Escalation to Management (Financial Hardship / Persistent Discount Requests): If a user remains adamant, cannot afford the fee, or requests extra financial support/scholarship after hearing the value and group discount, respond:
    "I completely understand your situation! Let me speak to our management team to see if we can arrange a special concession or custom payment plan for you. Please share your name and contact number, or reach out directly to our support team at +92 329 2020497."
+
+Age Requirement & Eligibility:
+- Minimum Age Requirement: The DataCrumbs AI & Data Science Bootcamp is designed for individuals aged 16 and above.
+- If a user mentions an age below 16 (e.g. 2 years old, 10 years old) or asks about age eligibility, state clearly and politely that the bootcamp is designed for learners aged 16 and above.
 
 Hardware Requirements & Time Commitment:
 - Minimum System Requirement: A basic laptop or computer with at least Core 2 Duo processor. Expensive hardware or GPUs are NOT required since all heavy AI workloads run on cloud platforms (Google Colab).
