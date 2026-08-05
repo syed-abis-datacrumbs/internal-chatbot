@@ -217,28 +217,41 @@ async function runEnrollmentMachine(
     }
 
     case 'awaiting_screenshot': {
-      if (msgType === 'image' && imageId) {
-        const { buffer, mimeType } = await downloadWhatsAppMedia(imageId);
-        const ts = Date.now();
-        const { fileId, webViewLink } = await uploadScreenshotToDrive(
-          buffer, mimeType, session.email!, ts,
-        );
+      const isImage = msgType === 'image' || (msgType === 'document' && Boolean(imageId));
+      if (isImage && imageId) {
+        let fileId = '';
+        let webViewLink = '';
+        let rowIndex = -1;
 
-        const rowIndex = await appendEnrollmentRow({
-          name:      session.name!,
-          email:     session.email!,
-          phone:     from,
-          timestamp: ts,
-          driveLink: webViewLink,
-        });
+        try {
+          const { buffer, mimeType } = await downloadWhatsAppMedia(imageId);
+          const ts = Date.now();
+          const driveRes = await uploadScreenshotToDrive(
+            buffer, mimeType, session.email || 'unknown@datacrumbs.org', ts,
+          );
+          fileId = driveRes.fileId;
+          webViewLink = driveRes.webViewLink;
 
-        session.driveFileId   = fileId;
-        session.driveFileUrl  = webViewLink;
-        if (!session.sheetRowIndex || session.sheetRowIndex < 1) {
+          rowIndex = await appendEnrollmentRow({
+            name:      session.name || 'Student',
+            email:     session.email || 'unknown@datacrumbs.org',
+            phone:     from,
+            timestamp: ts,
+            driveLink: webViewLink,
+          });
+        } catch (err: unknown) {
+          console.error('Failed to process screenshot on Drive/Sheets:', err instanceof Error ? err.message : err);
+        }
+
+        if (fileId) {
+          session.driveFileId  = fileId;
+          session.driveFileUrl = webViewLink;
+          mediaUrl = fileId;
+        }
+        if (rowIndex > 0) {
           session.sheetRowIndex = rowIndex;
         }
         session.state = 'screenshot_received';
-        mediaUrl = fileId;
 
         reply = `✅ We've received your payment screenshot!\n\nOur team will verify it and confirm your enrollment by tomorrow. We'll send you a message here once confirmed.\n\nIn the meantime, please sign up on our LMS using the *same email address* you provided (${session.email}):\n🔗 https://lms.datacrumbs.org\n\nThank you, *${session.name}*! We're excited to have you join DataCrumbs 🚀`;
       } else if (msgType === 'text' && text.trim()) {
@@ -260,15 +273,27 @@ async function runEnrollmentMachine(
     }
 
     case 'screenshot_received': {
-      if (msgType === 'image' && imageId) {
-        const { buffer, mimeType } = await downloadWhatsAppMedia(imageId);
-        const ts = Date.now();
-        const { fileId, webViewLink } = await uploadScreenshotToDrive(
-          buffer, mimeType, session.email!, ts,
-        );
-        session.driveFileId  = fileId;
-        session.driveFileUrl = webViewLink;
-        mediaUrl = fileId;
+      const isImage = msgType === 'image' || (msgType === 'document' && Boolean(imageId));
+      if (isImage && imageId) {
+        let fileId = '';
+        let webViewLink = '';
+        try {
+          const { buffer, mimeType } = await downloadWhatsAppMedia(imageId);
+          const ts = Date.now();
+          const driveRes = await uploadScreenshotToDrive(
+            buffer, mimeType, session.email || 'unknown@datacrumbs.org', ts,
+          );
+          fileId = driveRes.fileId;
+          webViewLink = driveRes.webViewLink;
+        } catch (err: unknown) {
+          console.error('Failed to update screenshot on Drive:', err instanceof Error ? err.message : err);
+        }
+
+        if (fileId) {
+          session.driveFileId  = fileId;
+          session.driveFileUrl = webViewLink;
+          mediaUrl = fileId;
+        }
 
         reply = `✅ Thanks! We've received your updated payment screenshot. Our team will verify it and confirm your enrollment shortly.`;
       } else if (msgType === 'text' && text.trim() && enrollmentSystemPrompt) {
@@ -304,9 +329,9 @@ export async function POST(req: NextRequest) {
 
       const from      = message.from as string;
       const msgType   = message.type as string;
-      const text      = msgType === 'text' ? (message.text?.body as string ?? '') : '';
-      const imageId   = message.image?.id as string | undefined;
-      const imageMime = message.image?.mime_type as string | undefined;
+      const text      = msgType === 'text' ? (message.text?.body as string ?? '') : (message.image?.caption ?? message.document?.caption ?? '');
+      const imageId   = message.image?.id ?? (message.document?.mime_type?.startsWith('image/') || message.document?.filename?.match(/\.(jpg|jpeg|png|webp|heic)$/i) ? message.document?.id : undefined);
+      const imageMime = message.image?.mime_type ?? message.document?.mime_type ?? 'image/jpeg';
 
       const [session, contactProfile] = await Promise.all([
         getActiveEnrollmentSession(from),
