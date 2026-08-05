@@ -88,7 +88,12 @@ type GeminiHistory = { role: 'user' | 'model'; parts: { text: string }[] }[];
 // so the code can append exactly one nudge instead of getting a duplicate.
 function stripEnrollmentNudge(text: string): string {
   return text
+    // "Also, please share your *email address*..." / "Please provide your full name..."
     .replace(/\n+(Also,?\s*)?(please\s+)?(share|provide|send)\s+your\s+[\*_]*(full\s+name|name|email\s+address|email)[\*_]*.*/gi, '')
+    // "To continue/proceed, please share your name/email..."
+    .replace(/\n+To\s+(continue|proceed|get\s+started)[^.!?]*?(share|provide|send)\s+your\s+(name|email).*/gi, '')
+    // "You can also share/provide your email..."
+    .replace(/\n+You\s+can\s+(also\s+)?(share|provide|send)\s+your\s+(name|email).*/gi, '')
     .trim();
 }
 
@@ -128,8 +133,8 @@ async function runEnrollmentMachine(
       if (session.email) {
         const nameOnly = cleanName(text);
         if (!nameOnly || !looksLikeName(nameOnly)) {
-          if (isQuestion(text) && systemPrompt) {
-            const aiReply = stripEnrollmentNudge(await getAIReply(text, history, enrollmentSystemPrompt!));
+          if (enrollmentSystemPrompt && text.trim()) {
+            const aiReply = stripEnrollmentNudge(await getAIReply(text, history, enrollmentSystemPrompt));
             reply = `${aiReply}\n\nAlso, could you share your *full name* to continue with enrollment? 😊`;
           } else {
             reply = 'Please share your *full name* to continue.\n\nExample: _John Doe_';
@@ -161,9 +166,9 @@ async function runEnrollmentMachine(
         reply = `Got your email! 😊 Could you also share your *full name*, please?\n\nExample: _John Doe_`;
       } else if (name && !email) {
         if (!looksLikeName(name)) {
-          // Doesn't look like a name — answer if question, otherwise ask again
-          if (isQuestion(text) && systemPrompt) {
-            const aiReply = stripEnrollmentNudge(await getAIReply(text, history, enrollmentSystemPrompt!));
+          // Doesn't look like a name — use Gemini for any non-empty reply
+          if (enrollmentSystemPrompt && text.trim()) {
+            const aiReply = stripEnrollmentNudge(await getAIReply(text, history, enrollmentSystemPrompt));
             reply = `${aiReply}\n\nAlso, please share your *full name* and *email address* to get enrolled 😊`;
           } else {
             reply = `Please share your *full name* and *email address* to continue.\n\nExample: _John Doe, johndoe@gmail.com_`;
@@ -174,9 +179,9 @@ async function runEnrollmentMachine(
           reply = `Thanks *${session.name}*! 😊 Now please share your *email address*.`;
         }
       } else {
-        // Neither — answer question if applicable, then nudge
-        if (isQuestion(text) && systemPrompt) {
-          const aiReply = stripEnrollmentNudge(await getAIReply(text, history, enrollmentSystemPrompt!));
+        // Neither — use Gemini for any non-empty reply
+        if (enrollmentSystemPrompt && text.trim()) {
+          const aiReply = stripEnrollmentNudge(await getAIReply(text, history, enrollmentSystemPrompt));
           reply = `${aiReply}\n\nAlso, please share your *full name* and *email address* to get enrolled 😊`;
         } else {
           reply = `Please share your *full name* and *email address* to continue.\n\nExample: _John Doe, johndoe@gmail.com_`;
@@ -237,6 +242,10 @@ async function runEnrollmentMachine(
         mediaUrl = fileId;
 
         reply = `✅ We've received your payment screenshot!\n\nOur team will verify it and confirm your enrollment by tomorrow. We'll send you a message here once confirmed.\n\nIn the meantime, please sign up on our LMS using the *same email address* you provided (${session.email}):\n🔗 https://lms.datacrumbs.org\n\nThank you, *${session.name}*! We're excited to have you join DataCrumbs 🚀`;
+      } else if (msgType === 'text' && text.trim() && enrollmentSystemPrompt) {
+        // Answer questions / conversational messages, then nudge for screenshot
+        const aiReply = stripEnrollmentNudge(await getAIReply(text, history, enrollmentSystemPrompt));
+        reply = `${aiReply}\n\nWhen you're ready, please send a *screenshot* of your payment to proceed 😊`;
       } else {
         reply = `Please send a *screenshot* of your payment to proceed.\n\n${buildPaymentMsg()}`;
       }
@@ -286,8 +295,8 @@ export async function POST(req: NextRequest) {
 
       // ── 1. Active enrollment session ─────────────────────────────────────
       if (session) {
-        // Fetch AI context only for states where the user might ask questions
-        const needsAI = session.state === 'collecting_name' || session.state === 'collecting_email';
+        // Fetch AI context for all states where the user might ask questions
+        const needsAI = session.state !== 'approved';
         const [systemPrompt, recentMsgs] = needsAI
           ? await Promise.all([getSystemPrompt(), getRecentMessagesByPhone(from, 10)])
           : [null, [] as Awaited<ReturnType<typeof getRecentMessagesByPhone>>];
