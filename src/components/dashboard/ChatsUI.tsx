@@ -197,7 +197,7 @@ export default function ChatsUI({ contacts: initial, total }: { contacts: Contac
                     fontSize: 11.5, color: '#6b7280', marginTop: 2,
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                   }}>
-                    {c.lastMessage.text || c.lastMessage.reply}
+                    {c.lastMessage.text === '[image]' ? '📷 Photo' : (c.lastMessage.text || c.lastMessage.reply)}
                   </div>
                 </div>
               </button>
@@ -310,6 +310,8 @@ export default function ChatsUI({ contacts: initial, total }: { contacts: Contac
                                 style={{ display: 'block', maxWidth: 240, maxHeight: 240, borderRadius: 11 }}
                               />
                             </a>
+                          ) : msg.text === '[image]' ? (
+                            <span style={{ fontSize: 20 }}>📷</span>
                           ) : msg.text}
                         </div>
                       </div>

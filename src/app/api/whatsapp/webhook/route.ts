@@ -98,15 +98,27 @@ async function runEnrollmentMachine(
   let reply = '';
   let mediaUrl: string | undefined;
 
+  // Prevent Gemini from adding its own enrollment nudge — the code appends one precisely
+  const enrollmentSystemPrompt = systemPrompt
+    ? `${systemPrompt}\n\nIMPORTANT: The user is currently mid-enrollment. Answer their question only. Do NOT remind them to share their name or email in this response — that nudge is handled separately.`
+    : null;
+
   switch (session.state) {
 
     case 'collecting_name': {
+      // Image sent before name/email collected — redirect
+      if (msgType === 'image') {
+        const what = session.email ? '*full name*' : '*full name* and *email address*';
+        reply = `Please share your ${what} first so we can get you enrolled! 😊`;
+        break;
+      }
+
       // Email already saved — only need name now
       if (session.email) {
         const nameOnly = cleanName(text);
         if (!nameOnly || !looksLikeName(nameOnly)) {
           if (isQuestion(text) && systemPrompt) {
-            const aiReply = await getAIReply(text, history, systemPrompt);
+            const aiReply = await getAIReply(text, history, enrollmentSystemPrompt!);
             reply = `${aiReply}\n\nAlso, could you share your *full name* to continue with enrollment? 😊`;
           } else {
             reply = 'Please share your *full name* to continue.\n\nExample: _John Doe_';
@@ -140,7 +152,7 @@ async function runEnrollmentMachine(
         if (!looksLikeName(name)) {
           // Doesn't look like a name — answer if question, otherwise ask again
           if (isQuestion(text) && systemPrompt) {
-            const aiReply = await getAIReply(text, history, systemPrompt);
+            const aiReply = await getAIReply(text, history, enrollmentSystemPrompt!);
             reply = `${aiReply}\n\nAlso, please share your *full name* and *email address* to get enrolled 😊`;
           } else {
             reply = `Please share your *full name* and *email address* to continue.\n\nExample: _John Doe, johndoe@gmail.com_`;
@@ -153,7 +165,7 @@ async function runEnrollmentMachine(
       } else {
         // Neither — answer question if applicable, then nudge
         if (isQuestion(text) && systemPrompt) {
-          const aiReply = await getAIReply(text, history, systemPrompt);
+          const aiReply = await getAIReply(text, history, enrollmentSystemPrompt!);
           reply = `${aiReply}\n\nAlso, please share your *full name* and *email address* to get enrolled 😊`;
         } else {
           reply = `Please share your *full name* and *email address* to continue.\n\nExample: _John Doe, johndoe@gmail.com_`;
@@ -163,11 +175,16 @@ async function runEnrollmentMachine(
     }
 
     case 'collecting_email': {
+      // Image sent before email — redirect politely
+      if (msgType === 'image') {
+        reply = `Please share your *email address* first (e.g. name@gmail.com) and then we'll get to the payment screenshot! 😊`;
+        break;
+      }
       const { email } = extractEmailAndName(text);
       if (!email) {
-        // Answer questions instead of just repeating "share your email"
-        if (isQuestion(text) && systemPrompt) {
-          const aiReply = await getAIReply(text, history, systemPrompt);
+        // Use Gemini for any non-email reply (questions, "done", "okay", etc.)
+        if (enrollmentSystemPrompt && text.trim()) {
+          const aiReply = await getAIReply(text, history, enrollmentSystemPrompt!);
           reply = `${aiReply}\n\nAlso, please share your *email address* to continue with enrollment 😊`;
         } else {
           reply = 'Please share a valid *email address* (e.g. name@gmail.com).';
