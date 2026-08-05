@@ -79,13 +79,35 @@ export async function downloadWhatsAppMedia(
 }
 
 export async function sendWhatsAppDocument(to: string) {
-  // Use the static file directly — avoids the /api/brochure redirect chain
-  // which fails when NEXT_PUBLIC_APP_URL is unset (NextResponse.redirect throws).
-  // VERCEL_URL is set automatically by Vercel for every deployment.
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
-  if (!appUrl) throw new Error('No app URL available — cannot send brochure');
+  // Upload the PDF directly to WhatsApp's media servers — no URL accessibility needed.
+  // This is more reliable than a link because Meta doesn't need to reach our server.
+  const { readFileSync } = await import('fs');
+  const { join } = await import('path');
+
+  const filePath = join(process.cwd(), 'public', 'brochure.pdf');
+  const fileBuffer = readFileSync(filePath);
+
+  const form = new FormData();
+  form.append('file', new Blob([fileBuffer], { type: 'application/pdf' }), BROCHURE_FILENAME);
+  form.append('type', 'application/pdf');
+  form.append('messaging_product', 'whatsapp');
+
+  const uploadRes = await fetch(
+    `https://graph.facebook.com/v25.0/${process.env.PHONE_NUMBER_ID}/media`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` },
+      body: form,
+    }
+  );
+
+  if (!uploadRes.ok) {
+    const errBody = await uploadRes.text();
+    throw new Error(`WhatsApp media upload failed (${uploadRes.status}): ${errBody}`);
+  }
+
+  const { id: mediaId } = await uploadRes.json() as { id: string };
+
   await axios.post(
     apiUrl('/messages'),
     {
@@ -93,7 +115,7 @@ export async function sendWhatsAppDocument(to: string) {
       to,
       type: 'document',
       document: {
-        link: `${appUrl}/brochure.pdf`,
+        id: mediaId,
         filename: BROCHURE_FILENAME,
       },
     },

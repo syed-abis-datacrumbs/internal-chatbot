@@ -380,7 +380,8 @@ export async function POST(req: NextRequest) {
       const from      = message.from as string;
       const msgType   = message.type as string;
       const text      = msgType === 'text' ? (message.text?.body as string ?? '') : (message.image?.caption ?? message.document?.caption ?? '');
-      const imageId   = message.image?.id ?? (message.document?.mime_type?.startsWith('image/') || message.document?.filename?.match(/\.(jpg|jpeg|png|webp|heic)$/i) ? message.document?.id : undefined);
+      // Accept any document as a potential payment screenshot — don't restrict by MIME/filename
+      const imageId   = message.image?.id ?? message.document?.id;
       const imageMime = message.image?.mime_type ?? message.document?.mime_type ?? 'image/jpeg';
 
       const [session, contactProfile] = await Promise.all([
@@ -436,9 +437,13 @@ export async function POST(req: NextRequest) {
           from, session, msgType, text, imageId, imageMime, history, explicitName,
         );
         await sendWhatsAppMessage(from, reply);
+        const isMediaMsg = msgType === 'image' || msgType === 'document';
         await saveMessage({
-          from, text: text || '[image]', reply, timestamp: Date.now(),
-          ...(mediaUrl ? { mediaUrl, mediaType: 'image' as const } : {}),
+          from,
+          text: isMediaMsg ? '[image]' : text,
+          reply,
+          timestamp: Date.now(),
+          ...(isMediaMsg ? { mediaType: 'image' as const, ...(mediaUrl ? { mediaUrl } : {}) } : {}),
         });
         return;
       }

@@ -310,6 +310,8 @@ export default function ChatsUI({ contacts: initial, total }: { contacts: Contac
                                 style={{ display: 'block', maxWidth: 240, maxHeight: 240, borderRadius: 11 }}
                               />
                             </a>
+                          ) : msg.mediaType === 'image' ? (
+                            <span style={{ fontSize: 20 }}>📷</span>
                           ) : msg.text === '[image]' ? (
                             <span style={{ fontSize: 20 }}>📷</span>
                           ) : msg.text}

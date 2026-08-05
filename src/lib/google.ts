@@ -48,7 +48,7 @@ export async function uploadScreenshotToDrive(
 ): Promise<{ fileId: string; webViewLink: string }> {
   const drive    = google.drive({ version: 'v3', auth: auth() });
   const folderId = await getOrCreateEmailFolder(email);
-  const ext      = mimeType.includes('png') ? 'png' : 'jpg';
+  const ext      = mimeType.includes('png') ? 'png' : mimeType.includes('pdf') ? 'pdf' : 'jpg';
 
   const file = await drive.files.create({
     requestBody: {
