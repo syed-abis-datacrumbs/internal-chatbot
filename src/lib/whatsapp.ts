@@ -79,50 +79,16 @@ export async function downloadWhatsAppMedia(
 }
 
 export async function sendWhatsAppDocument(to: string) {
-  // public/ files are on Vercel's CDN, not the Lambda filesystem.
-  // Fetch from own CDN URL → upload to WhatsApp media servers → send by media ID.
-  // VERCEL_URL is auto-set by Vercel for every deployment (always correct).
-  const baseUrl =
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
-    process.env.NEXT_PUBLIC_APP_URL;
-  if (!baseUrl) throw new Error('Cannot determine app URL to fetch brochure');
-
-  const brochureUrl = `${baseUrl}/brochure.pdf`;
-  console.log('[brochure] fetching from CDN:', brochureUrl);
-
-  const fileRes = await fetch(brochureUrl);
-  if (!fileRes.ok) throw new Error(`CDN fetch failed (${fileRes.status}): ${brochureUrl}`);
-  const fileBuffer = Buffer.from(await fileRes.arrayBuffer());
-
-  const form = new FormData();
-  form.append('file', new Blob([fileBuffer], { type: 'application/pdf' }), BROCHURE_FILENAME);
-  form.append('type', 'application/pdf');
-  form.append('messaging_product', 'whatsapp');
-
-  const uploadRes = await fetch(
-    `https://graph.facebook.com/v25.0/${process.env.PHONE_NUMBER_ID}/media`,
-    {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` },
-      body: form,
-    }
-  );
-
-  if (!uploadRes.ok) {
-    const errBody = await uploadRes.text();
-    throw new Error(`WhatsApp media upload failed (${uploadRes.status}): ${errBody}`);
-  }
-
-  const { id: mediaId } = await uploadRes.json() as { id: string };
-  console.log('[brochure] uploaded to WhatsApp, mediaId:', mediaId);
-
+  // agent.datacrumbs.org/brochure.pdf is confirmed publicly accessible (200 OK, application/pdf).
+  // WhatsApp downloads from this link directly — no filesystem or media upload needed.
+  const brochureLink = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://agent.datacrumbs.org'}/brochure.pdf`;
   await axios.post(
     apiUrl('/messages'),
     {
       messaging_product: 'whatsapp',
       to,
       type: 'document',
-      document: { id: mediaId, filename: BROCHURE_FILENAME },
+      document: { link: brochureLink, filename: BROCHURE_FILENAME },
     },
     { headers: headers() }
   );
