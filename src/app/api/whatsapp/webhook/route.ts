@@ -54,26 +54,31 @@ const EMAIL_RE = /[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+/;
 function cleanName(raw: string): string {
   return raw
     .replace(/\b(my name is|i am|i'm|name is|call me|and email is|email is|email:)\b/gi, '')
-    .replace(/@\S*/g, '')   // remove stray @fragments (e.g. from double-@ typos)
+    .replace(/@\S*/g, '')   // remove stray @fragments
     .replace(EMAIL_RE, '')  // remove any leftover email fragment
     .replace(/[,;|]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
+function looksLikeName(text: string): boolean {
+  const t = text.trim();
+  if (!t || t.length < 2 || t.length > 40) return false;
+  // Reject if contains any numbers, punctuation, or question marks
+  if (/[0-9?!@#$%^&*()_+={}\[\]:;<>\\\/]/g.test(t)) return false;
+  const words = t.split(/\s+/);
+  if (words.length > 4) return false;
+
+  const NON_NAME_WORDS = /\b(tell|something|related|internship|course|bootcamp|fee|price|cost|timing|class|classes|recording|missed|register|enroll|payment|pay|bank|easypaisa|jazzcash|nayapay|account|iban|screenshot|receipt|hi|hello|hey|salam|aoa|okay|ok|yes|no|thanks|thank|what|how|when|where|why|is|are|can|could|would|please|about|kya|kab|kaisa|bata|mujhe|aur|aap)\b/i;
+  return !NON_NAME_WORDS.test(t);
+}
+
 function extractEmailAndName(text: string): { email: string | null; name: string | null } {
   const emailMatch = text.match(EMAIL_RE);
   const email = emailMatch ? emailMatch[0].toLowerCase() : null;
-  const nameRaw = cleanName(text.replace(EMAIL_RE, ''));
-  const name = nameRaw.length > 0 ? nameRaw : null;
+  const nameCandidate = cleanName(text.replace(EMAIL_RE, ''));
+  const name = looksLikeName(nameCandidate) ? nameCandidate : null;
   return { email, name };
-}
-
-function looksLikeName(text: string): boolean {
-  const t = text.trim();
-  if (t.includes('@') || t.includes('?') || t.length > 60) return false;
-  const questionWords = /\b(what|how|when|where|why|tell|is|are|do|can|could|would|please|about|kya|kab|kaisa|bata|mujhe|aur|aap|fee|timing|course|duration|internship)\b/i;
-  return !questionWords.test(t) && t.split(/\s+/).length <= 5;
 }
 
 // True if the message looks like a question the AI should answer
@@ -256,7 +261,8 @@ async function runEnrollmentMachine(
         }
         session.state = 'screenshot_received';
 
-        reply = `✅ We've received your payment screenshot!\n\nOur team will verify it and confirm your enrollment by tomorrow. We'll send you a message here once confirmed.\n\nIn the meantime, please sign up on our LMS using the *same email address* you provided (${session.email}):\n🔗 https://lms.datacrumbs.org\n\nThank you, *${session.name}*! We're excited to have you join DataCrumbs 🚀`;
+        const displayName = (session.name && looksLikeName(session.name)) ? session.name : 'Student';
+        reply = `✅ We've received your image! Our team will review and verify your payment receipt. Once verified, we will confirm your enrollment here.\n\nIn the meantime, please sign up on our LMS using the *same email address* you provided (${session.email}):\n🔗 https://lms.datacrumbs.org\n\nThank you, *${displayName}*! We're excited to have you join DataCrumbs 🚀`;
       } else if (msgType === 'text' && text.trim()) {
         const isPaymentQuery = /\b(pay|payment|bank|easypaisa|jazzcash|nayapay|account|iban|fee|receipt|ss|screenshot|transfer|paid)\b/i.test(text);
         if (enrollmentSystemPrompt) {
@@ -298,11 +304,11 @@ async function runEnrollmentMachine(
           mediaUrl = fileId;
         }
 
-        reply = `✅ Thanks! We've received your updated payment screenshot. Our team will verify it and confirm your enrollment shortly.`;
+        reply = `✅ Thanks! We've received your image upload. Our team will review and verify it to confirm your enrollment shortly.`;
       } else if (msgType === 'text' && text.trim() && enrollmentSystemPrompt) {
         reply = await getAIReply(text, history, enrollmentSystemPrompt);
       } else {
-        reply = `We've received your payment screenshot and our team is verifying it! We will update you shortly. 😊`;
+        reply = `We've received your image upload and our team is reviewing it! We will update you shortly. 😊`;
       }
       break;
     }
