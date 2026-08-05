@@ -79,7 +79,11 @@ export async function downloadWhatsAppMedia(
 }
 
 export async function sendWhatsAppDocument(to: string) {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  // NEXT_PUBLIC_APP_URL must be set in Vercel env vars; VERCEL_URL is the auto fallback
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
+  if (!appUrl) throw new Error('NEXT_PUBLIC_APP_URL is not set — cannot send brochure');
   await axios.post(
     apiUrl('/messages'),
     {

@@ -341,6 +341,16 @@ async function runEnrollmentMachine(
     }
 
     case 'approved': {
+      // Upload any image sent so it appears as a thumbnail in the dashboard
+      if ((msgType === 'image' || msgType === 'document') && imageId) {
+        try {
+          const { buffer, mimeType } = await downloadWhatsAppMedia(imageId);
+          const { fileId } = await uploadScreenshotToDrive(buffer, mimeType, session.email ?? from, Date.now());
+          mediaUrl = fileId;
+        } catch (err) {
+          console.error('Drive upload failed (approved):', err instanceof Error ? err.message : err);
+        }
+      }
       if (msgType === 'text' && text.trim()) {
         reply = await getAIReply(text, history, CORE_SYSTEM_PROMPT);
       } else {
@@ -394,6 +404,21 @@ export async function POST(req: NextRequest) {
         return;
       }
 
+      // ── 0b. Brochure shortcut — checked before enrollment so ALL users get the PDF ──
+      if (msgType === 'text' && wantsBrochure(text)) {
+        const reply = 'Here is our complete Data Science & AI Bootcamp brochure! It covers the full curriculum, pricing, internship details, and instructor profiles. Let me know if you have any questions 😊';
+        let sentDoc = false;
+        try {
+          await sendWhatsAppDocument(from);
+          sentDoc = true;
+        } catch (err) {
+          console.error('Failed to send brochure document:', err instanceof Error ? err.message : err);
+        }
+        await sendWhatsAppMessage(from, reply);
+        await saveMessage({ from, text, reply, timestamp: Date.now(), ...(sentDoc ? { mediaType: 'document' as const } : {}) });
+        return;
+      }
+
       // ── 1. Active enrollment session ─────────────────────────────────────
       if (session) {
         // Fetch AI context for all states where the user might ask questions
@@ -423,21 +448,6 @@ export async function POST(req: NextRequest) {
         if (msgType === 'image' || msgType === 'document') {
           await saveMessage({ from, text: '[image]', reply: '', timestamp: Date.now() });
         }
-        return;
-      }
-
-      // ── 3. Brochure shortcut ─────────────────────────────────────────────
-      if (wantsBrochure(text)) {
-        const reply = 'Here is our complete Data Science & AI Bootcamp brochure! It covers the full curriculum, pricing, internship details, and instructor profiles. Let me know if you have any questions 😊';
-        let sentDoc = false;
-        try {
-          await sendWhatsAppDocument(from);
-          sentDoc = true;
-        } catch (err) {
-          console.error('Failed to send brochure document:', err instanceof Error ? err.message : err);
-        }
-        await sendWhatsAppMessage(from, reply);
-        await saveMessage({ from, text, reply, timestamp: Date.now(), ...(sentDoc ? { mediaType: 'document' as const } : {}) });
         return;
       }
 
