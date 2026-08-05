@@ -81,6 +81,17 @@ function extractEmailAndName(text: string): { email: string | null; name: string
   return { email, name };
 }
 
+// Extract explicit name introduced in conversation ("my name is Syed Abis", "I am Syed Abis")
+function extractExplicitNameFromText(text: string): string | null {
+  if (!text || text.length > 100) return null;
+  const match = text.match(/\b(?:my name is|i am|i'm|call me|name is)\s+([A-Za-z\s]{2,35})/i);
+  if (match) {
+    const candidate = cleanName(match[1]);
+    if (looksLikeName(candidate)) return candidate;
+  }
+  return null;
+}
+
 // True if the message looks like a question the AI should answer
 function isQuestion(text: string): boolean {
   if (text.trim().endsWith('?')) return true;
@@ -121,13 +132,13 @@ async function runEnrollmentMachine(
   imageId?: string,
   imageMime?: string,
   history: GeminiHistory = [],
-  profileName?: string,
+  explicitName?: string,
 ): Promise<{ reply: string; mediaUrl?: string }> {
   let reply = '';
   let mediaUrl: string | undefined;
 
-  // Resolve user name across session, contact profile, and WhatsApp metadata
-  const candidateName = session.name || profileName;
+  // Prefer session.name, or explicit name stated by user in chat history
+  const candidateName = session.name || explicitName;
   if (!session.name && candidateName && looksLikeName(candidateName)) {
     session.name = candidateName;
   }
@@ -348,22 +359,24 @@ export async function POST(req: NextRequest) {
       const message = value?.messages?.[0];
       if (!message) return;
 
-      const from          = message.from as string;
-      const msgType       = message.type as string;
-      const text          = msgType === 'text' ? (message.text?.body as string ?? '') : (message.image?.caption ?? message.document?.caption ?? '');
-      const imageId       = message.image?.id ?? (message.document?.mime_type?.startsWith('image/') || message.document?.filename?.match(/\.(jpg|jpeg|png|webp|heic)$/i) ? message.document?.id : undefined);
-      const imageMime     = message.image?.mime_type ?? message.document?.mime_type ?? 'image/jpeg';
-      const waProfileName = value?.contacts?.[0]?.profile?.name as string | undefined;
+      const from      = message.from as string;
+      const msgType   = message.type as string;
+      const text      = msgType === 'text' ? (message.text?.body as string ?? '') : (message.image?.caption ?? message.document?.caption ?? '');
+      const imageId   = message.image?.id ?? (message.document?.mime_type?.startsWith('image/') || message.document?.filename?.match(/\.(jpg|jpeg|png|webp|heic)$/i) ? message.document?.id : undefined);
+      const imageMime = message.image?.mime_type ?? message.document?.mime_type ?? 'image/jpeg';
 
       const [session, contactProfile] = await Promise.all([
         getActiveEnrollmentSession(from),
         getContactProfile(from),
       ]);
 
-      const profileName = contactProfile?.name || (waProfileName && looksLikeName(waProfileName) ? waProfileName : undefined);
-      if (waProfileName && looksLikeName(waProfileName) && !contactProfile?.name) {
-        await saveContactProfile({ phone: from, name: waProfileName, nameAsked: false });
+      // Check if user explicitly stated their name in this message ("My name is John")
+      const newlyStatedName = msgType === 'text' ? extractExplicitNameFromText(text) : null;
+      if (newlyStatedName) {
+        await saveContactProfile({ phone: from, name: newlyStatedName, nameAsked: false });
       }
+
+      const explicitName = newlyStatedName || (contactProfile?.name && looksLikeName(contactProfile.name) ? contactProfile.name : undefined);
 
       // ── 0. Bot toggle ────────────────────────────────────────────────────
       if (contactProfile?.botDisabled) {
@@ -387,7 +400,7 @@ export async function POST(req: NextRequest) {
         ]);
 
         const { reply, mediaUrl } = await runEnrollmentMachine(
-          from, session, msgType, text, imageId, imageMime, history, profileName,
+          from, session, msgType, text, imageId, imageMime, history, explicitName,
         );
         await sendWhatsAppMessage(from, reply);
         await saveMessage({
