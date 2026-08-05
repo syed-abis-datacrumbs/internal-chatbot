@@ -84,6 +84,14 @@ function isQuestion(text: string): boolean {
 
 type GeminiHistory = { role: 'user' | 'model'; parts: { text: string }[] }[];
 
+// Strip any enrollment nudge Gemini added (system prompt tells it to redirect),
+// so the code can append exactly one nudge instead of getting a duplicate.
+function stripEnrollmentNudge(text: string): string {
+  return text
+    .replace(/\n+(Also,?\s*)?(please\s+)?(share|provide|send)\s+your\s+[\*_]*(full\s+name|name|email\s+address|email)[\*_]*.*/gi, '')
+    .trim();
+}
+
 // ── Enrollment state machine ──────────────────────────────────────────────────
 async function runEnrollmentMachine(
   from: string,
@@ -121,7 +129,7 @@ async function runEnrollmentMachine(
         const nameOnly = cleanName(text);
         if (!nameOnly || !looksLikeName(nameOnly)) {
           if (isQuestion(text) && systemPrompt) {
-            const aiReply = await getAIReply(text, history, enrollmentSystemPrompt!);
+            const aiReply = stripEnrollmentNudge(await getAIReply(text, history, enrollmentSystemPrompt!));
             reply = `${aiReply}\n\nAlso, could you share your *full name* to continue with enrollment? 😊`;
           } else {
             reply = 'Please share your *full name* to continue.\n\nExample: _John Doe_';
@@ -155,7 +163,7 @@ async function runEnrollmentMachine(
         if (!looksLikeName(name)) {
           // Doesn't look like a name — answer if question, otherwise ask again
           if (isQuestion(text) && systemPrompt) {
-            const aiReply = await getAIReply(text, history, enrollmentSystemPrompt!);
+            const aiReply = stripEnrollmentNudge(await getAIReply(text, history, enrollmentSystemPrompt!));
             reply = `${aiReply}\n\nAlso, please share your *full name* and *email address* to get enrolled 😊`;
           } else {
             reply = `Please share your *full name* and *email address* to continue.\n\nExample: _John Doe, johndoe@gmail.com_`;
@@ -168,7 +176,7 @@ async function runEnrollmentMachine(
       } else {
         // Neither — answer question if applicable, then nudge
         if (isQuestion(text) && systemPrompt) {
-          const aiReply = await getAIReply(text, history, enrollmentSystemPrompt!);
+          const aiReply = stripEnrollmentNudge(await getAIReply(text, history, enrollmentSystemPrompt!));
           reply = `${aiReply}\n\nAlso, please share your *full name* and *email address* to get enrolled 😊`;
         } else {
           reply = `Please share your *full name* and *email address* to continue.\n\nExample: _John Doe, johndoe@gmail.com_`;
@@ -190,7 +198,7 @@ async function runEnrollmentMachine(
       if (!email) {
         // Use Gemini for any non-email reply (questions, "done", "okay", etc.)
         if (enrollmentSystemPrompt && text.trim()) {
-          const aiReply = await getAIReply(text, history, enrollmentSystemPrompt!);
+          const aiReply = stripEnrollmentNudge(await getAIReply(text, history, enrollmentSystemPrompt!));
           reply = `${aiReply}\n\nAlso, please share your *email address* to continue with enrollment 😊`;
         } else {
           reply = 'Please share a valid *email address* (e.g. name@gmail.com).';
