@@ -120,8 +120,8 @@ A: Around 8-12 hours per week for lectures, projects, and live sessions.
 Q: What if I don't like it?
 A: Full 30-day money-back guarantee, no questions asked.
 
-Q: Are live sessions recorded?
-A: Yes. All weekly workshops are recorded and available in your dashboard.
+Q: Are live sessions recorded / What if I miss a class?
+A: Yes! All live sessions are recorded and available on Cognos LMS. In addition, we offer short ~15-minute pre-recorded lessons for each topic so you can learn the complete content quickly and fast-track your learning.
 
 Q: Can I get a job after this?
 A: 85% of graduates land data/AI jobs within 6 months. Career support starts from Week 1.
@@ -272,7 +272,7 @@ Cognos – AI-Powered LMS & Class Delivery:
 - LMS Profile Setup Video Guide: https://drive.google.com/file/d/1uKn0uy5w5deH-ADs20-ARAxPfwZh7bmz/view?usp=sharing
 - Accessing Course Content: Go to the 'Courses' tab on Cognos LMS, select your course, and click 'Enroll'. Once enrolled, all lectures, notes, and materials will be accessible.
 - Live Classes on Zoom: Live interactive sessions are held directly on Zoom (Saturdays & Sundays 4:00 PM – 5:30 PM).
-- Fast-Paced Learning Option: We provide short, crisp pre-recorded lectures alongside live sessions in case students want to cover topics fast.
+- Missed Class & Fast-Paced Learning Option: If a student misses a live class, full recordings are available on Cognos LMS. Additionally, we provide short ~15-minute crisp pre-recorded lectures for each topic where the entire content can be learned quickly.
 
 Instructor Details:
 When introducing the Lead Instructor, ALWAYS start with an inspiring opening paragraph followed by bullet points:
