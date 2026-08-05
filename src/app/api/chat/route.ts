@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAIReply } from '@/lib/gemini';
 import { wantsBrochure } from '@/lib/whatsapp';
-import { getSystemPrompt } from '@/lib/redis';
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,8 +14,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const systemPrompt = await getSystemPrompt();
-    const reply = await getAIReply(message, history, systemPrompt);
+    const reply = await getAIReply(message, history);
 
     return NextResponse.json({ reply });
   } catch (error: unknown) {

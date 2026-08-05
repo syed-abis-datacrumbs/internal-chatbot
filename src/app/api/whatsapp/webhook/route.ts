@@ -8,7 +8,7 @@ import {
 import { getAIReply } from '@/lib/gemini';
 import { CORE_SYSTEM_PROMPT } from '@/lib/knowledge';
 import {
-  saveMessage, getSystemPrompt, getRecentMessagesByPhone,
+  saveMessage, getRecentMessagesByPhone,
   getActiveEnrollmentSession, saveEnrollmentSession,
   getContactProfile, saveContactProfile,
   type EnrollmentSession,
@@ -108,15 +108,13 @@ async function runEnrollmentMachine(
   text: string,
   imageId?: string,
   imageMime?: string,
-  systemPrompt?: string | null,
   history: GeminiHistory = [],
 ): Promise<{ reply: string; mediaUrl?: string }> {
   let reply = '';
   let mediaUrl: string | undefined;
 
   // Prevent Gemini from adding its own enrollment nudge — the code appends one precisely
-  const baseSystemPrompt = systemPrompt ?? CORE_SYSTEM_PROMPT;
-  const enrollmentSystemPrompt = `${baseSystemPrompt}\n\nIMPORTANT: The user is currently mid-enrollment. Answer their question directly and concisely. Do NOT add unnecessary prompts or reminders asking for their name, email, or payment screenshots.`;
+  const enrollmentSystemPrompt = `${CORE_SYSTEM_PROMPT}\n\nIMPORTANT: The user is currently mid-enrollment. Answer their question directly and concisely. Do NOT add unnecessary prompts or reminders asking for their name, email, or payment screenshots.`;
 
   switch (session.state) {
 
@@ -327,9 +325,9 @@ export async function POST(req: NextRequest) {
       if (session) {
         // Fetch AI context for all states where the user might ask questions
         const needsAI = session.state !== 'approved';
-        const [systemPrompt, recentMsgs] = needsAI
-          ? await Promise.all([getSystemPrompt(), getRecentMessagesByPhone(from, 10)])
-          : [null, [] as Awaited<ReturnType<typeof getRecentMessagesByPhone>>];
+        const recentMsgs = needsAI
+          ? await getRecentMessagesByPhone(from, 10)
+          : [];
 
         const history: GeminiHistory = recentMsgs.flatMap(m => [
           ...(m.text && m.text !== '[image]' ? [{ role: 'user'  as const, parts: [{ text: m.text  }] }] : []),
@@ -337,7 +335,7 @@ export async function POST(req: NextRequest) {
         ]);
 
         const { reply, mediaUrl } = await runEnrollmentMachine(
-          from, session, msgType, text, imageId, imageMime, systemPrompt, history,
+          from, session, msgType, text, imageId, imageMime, history,
         );
         await sendWhatsAppMessage(from, reply);
         await saveMessage({
@@ -380,10 +378,7 @@ export async function POST(req: NextRequest) {
       }
 
       // ── 5. Normal Gemini flow ─────────────────────────────────────────────
-      const [systemPrompt, recentMsgs] = await Promise.all([
-        getSystemPrompt(),
-        getRecentMessagesByPhone(from, 10),
-      ]);
+      const recentMsgs = await getRecentMessagesByPhone(from, 10);
 
       if (contactProfile?.nameAsked && !contactProfile?.name && looksLikeName(text)) {
         await saveContactProfile({ phone: from, name: text.trim(), nameAsked: false });
@@ -394,7 +389,7 @@ export async function POST(req: NextRequest) {
         ...(m.reply                         ? [{ role: 'model' as const, parts: [{ text: m.reply }] }] : []),
       ]);
 
-      let reply = await getAIReply(text, history, systemPrompt);
+      let reply = await getAIReply(text, history);
 
       if (!contactProfile?.name && !contactProfile?.nameAsked && recentMsgs.length === 1) {
         reply += '\n\nBy the way, may I know your name? 😊';
