@@ -141,8 +141,7 @@ async function runEnrollmentMachine(
         const nameOnly = cleanName(text);
         if (!nameOnly || !looksLikeName(nameOnly)) {
           if (enrollmentSystemPrompt && text.trim()) {
-            const rawReply = await getAIReply(text, history, enrollmentSystemPrompt);
-            reply = withNudgeIfNeeded(rawReply, 'Also, could you share your *full name* to continue with enrollment? 😊', /\bname\b/i);
+            reply = await getAIReply(text, history, enrollmentSystemPrompt);
           } else {
             reply = 'Please share your *full name* to continue.\n\nExample: _John Doe_';
           }
@@ -175,8 +174,7 @@ async function runEnrollmentMachine(
         if (!looksLikeName(name)) {
           // Doesn't look like a name — use Gemini for any non-empty reply
           if (enrollmentSystemPrompt && text.trim()) {
-            const rawReply = await getAIReply(text, history, enrollmentSystemPrompt);
-            reply = withNudgeIfNeeded(rawReply, 'Also, please share your *full name* and *email address* to get enrolled 😊', /\b(name|email)\b/i);
+            reply = await getAIReply(text, history, enrollmentSystemPrompt);
           } else {
             reply = `Please share your *full name* and *email address* to continue.\n\nExample: _John Doe, johndoe@gmail.com_`;
           }
@@ -188,8 +186,7 @@ async function runEnrollmentMachine(
       } else {
         // Neither — use Gemini for any non-empty reply
         if (enrollmentSystemPrompt && text.trim()) {
-          const rawReply = await getAIReply(text, history, enrollmentSystemPrompt);
-          reply = withNudgeIfNeeded(rawReply, 'Also, please share your *full name* and *email address* to get enrolled 😊', /\b(name|email)\b/i);
+          reply = await getAIReply(text, history, enrollmentSystemPrompt);
         } else {
           reply = `Please share your *full name* and *email address* to continue.\n\nExample: _John Doe, johndoe@gmail.com_`;
         }
@@ -210,8 +207,7 @@ async function runEnrollmentMachine(
       if (!email) {
         // Use Gemini for any non-email reply (questions, "done", "okay", etc.)
         if (enrollmentSystemPrompt && text.trim()) {
-          const rawReply = await getAIReply(text, history, enrollmentSystemPrompt!);
-          reply = withNudgeIfNeeded(rawReply, 'Also, please share your *email address* to continue with enrollment 😊', /\bemail\b/i);
+          reply = await getAIReply(text, history, enrollmentSystemPrompt!);
         } else {
           reply = 'Please share a valid *email address* (e.g. name@gmail.com).';
         }
