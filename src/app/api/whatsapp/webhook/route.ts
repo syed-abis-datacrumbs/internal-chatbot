@@ -137,6 +137,45 @@ function isPriceShockReaction(text: string): boolean {
   );
 }
 
+// True if the message is a B2B / vendor / partnership pitch rather than a student enquiry
+function isBusinessPitch(text: string): boolean {
+  const t = text.toLowerCase();
+
+  // Strong single signals — a student would never write these
+  const strongSignals = [
+    /\b(appointment|meeting)\s+(request|invitation)\b/i,
+    /\brequest(ing)?\s+a?\s*(meeting|appointment|demo|call)\b/i,
+    /\b(sales|marketing|business development|bd)\s+(executive|manager|officer|representative|rep)\b/i,
+    /\b(pvt\.?\s*ltd|private limited|\(pvt\)|llc|inc\.|technologies|solutions)\b.{0,40}\b(www\.|http)/i,
+    /\bschedule a (meeting|call|demo)\b/i,
+    /\b(partnership|collaboration|reseller|vendor|B2B)\s+(opportunity|proposal|inquiry|offer)\b/i,
+    /\bwe (offer|provide|specialize in|are a)\b.{0,60}\b(company|agency|platform|solution|service)\b/i,
+    /\bour (company|firm|agency|organization) (offers|provides|specializes)/i,
+    /\bdear (sir|madam|sir\/madam)\b[\s\S]{0,200}\b(meeting|discuss|platform|product|service|proposal)/i,
+  ];
+  if (strongSignals.some(re => re.test(t))) return true;
+
+  // Weaker signals — need at least two together to be confident
+  const weakSignals = [
+    /\bdear (sir|madam|team|concerned)\b/i,
+    /\b(best|kind|warm) regards\b/i,
+    /\bhope this (message|email|finds you)\b/i,
+    /\bi am writing to\b/i,
+    /\bwww\.\S+\.\w{2,}/i,
+    /\b(our|this) (innovative |new )?(platform|product|solution|software|system|tool)\b/i,
+    /\b(would like to|wish to) (discuss|introduce|present)\b/i,
+    /\bat your (convenience|earliest)\b/i,
+    /\blooking forward to (your|hearing)\b/i,
+  ];
+  return weakSignals.filter(re => re.test(t)).length >= 2;
+}
+
+// True if the user's own message is about money — required before treating
+// Gemini's redirect reply as a discount escalation
+function isMoneyContext(text: string): boolean {
+  return /\b(fee|fees|price|pricing|cost|charge|payment|discount|afford|budget|scholarship|expensive|costly|money|rupees|rs\.?|paisa|mehnga|zyada)\b/i.test(text);
+}
+
 // True if the message looks like a question the AI should answer
 function isQuestion(text: string): boolean {
   if (text.trim().endsWith('?')) return true;
@@ -588,6 +627,14 @@ export async function POST(req: NextRequest) {
         await saveContactProfile({ phone: from, name: text.trim(), nameAsked: false });
       }
 
+      // ── 5a2. B2B / vendor pitch — decline politely, never route into student flows ──
+      if (isBusinessPitch(text)) {
+        const pitchReply = `Thank you for reaching out! 🙏\n\nWe're a student-focused training platform and don't take vendor or partnership meetings through this channel.\n\nFor business enquiries, please email *info@datacrumbs.org*.`;
+        await sendWhatsAppMessage(from, pitchReply);
+        await saveMessage({ from, text, reply: pitchReply, timestamp: Date.now() });
+        return;
+      }
+
       // ── 5b. Discount collection trigger ──────────────────────────────────
       // Fires when: (a) explicit affordability/discount request, OR
       //             (b) vague sticker-shock reaction right after we quoted the fee, OR
@@ -631,13 +678,17 @@ export async function POST(req: NextRequest) {
         await saveContactProfile({ phone: from, nameAsked: true });
       }
 
-      // Backup: detect any escalation phrase in Gemini's reply (broader regex to catch paraphrases)
+      // Backup: detect escalation phrasing in Gemini's reply.
+      // Gated on the USER's message being about money — otherwise a plain redirect
+      // to support (e.g. for an off-topic enquiry) would wrongly start the discount flow.
       const isEscalation =
-        /noted.{0,30}request/i.test(reply) ||
-        /forward.{0,30}(request|management)/i.test(reply) ||
-        /management.{0,50}reach.{0,20}out/i.test(reply) ||
-        /team.{0,50}will.{0,20}(reach|contact)/i.test(reply) ||
-        /contact our support team/i.test(reply);
+        isMoneyContext(text) && (
+          /noted.{0,30}request/i.test(reply) ||
+          /forward.{0,30}(request|management)/i.test(reply) ||
+          /management.{0,50}reach.{0,20}out/i.test(reply) ||
+          /team.{0,50}will.{0,20}(reach|contact)/i.test(reply) ||
+          /contact our support team/i.test(reply)
+        );
 
       if (isEscalation) {
         const existingName = contactProfile?.name && looksLikeName(contactProfile.name) ? contactProfile.name : null;
