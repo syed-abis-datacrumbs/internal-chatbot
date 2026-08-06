@@ -18,11 +18,11 @@ function auth() {
 
 // ── Drive ──────────────────────────────────────────────────────────────────
 
-async function getOrCreateEmailFolder(email: string): Promise<string> {
+async function getOrCreateFolder(folderName: string): Promise<string> {
   const drive = google.drive({ version: 'v3', auth: auth() });
 
   const res = await drive.files.list({
-    q: `name='${email}' and '${DRIVE_FOLDER_ID}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+    q: `name='${folderName}' and '${DRIVE_FOLDER_ID}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
     fields: 'files(id)',
     spaces: 'drive',
   });
@@ -31,7 +31,7 @@ async function getOrCreateEmailFolder(email: string): Promise<string> {
 
   const folder = await drive.files.create({
     requestBody: {
-      name: email,
+      name: folderName,
       mimeType: 'application/vnd.google-apps.folder',
       parents: [DRIVE_FOLDER_ID],
     },
@@ -43,11 +43,11 @@ async function getOrCreateEmailFolder(email: string): Promise<string> {
 export async function uploadScreenshotToDrive(
   buffer: Buffer,
   mimeType: string,
-  email: string,
+  phone: string,
   timestamp: number,
 ): Promise<{ fileId: string; webViewLink: string }> {
   const drive    = google.drive({ version: 'v3', auth: auth() });
-  const folderId = await getOrCreateEmailFolder(email);
+  const folderId = await getOrCreateFolder(phone);
   const ext      = mimeType.includes('png') ? 'png' : mimeType.includes('pdf') ? 'pdf' : 'jpg';
 
   const file = await drive.files.create({

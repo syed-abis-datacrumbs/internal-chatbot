@@ -157,7 +157,7 @@ async function runEnrollmentMachine(
       if (msgType === 'image' && imageId) {
         try {
           const { buffer, mimeType } = await downloadWhatsAppMedia(imageId);
-          const { fileId } = await uploadScreenshotToDrive(buffer, mimeType, session.email ?? from, Date.now());
+          const { fileId } = await uploadScreenshotToDrive(buffer, mimeType, from, Date.now());
           mediaUrl = fileId;
         } catch (err) {
           console.error('Drive upload failed (collecting_name):', err instanceof Error ? err.message : err);
@@ -230,7 +230,7 @@ async function runEnrollmentMachine(
       if (msgType === 'image' && imageId) {
         try {
           const { buffer, mimeType } = await downloadWhatsAppMedia(imageId);
-          const { fileId } = await uploadScreenshotToDrive(buffer, mimeType, session.email ?? from, Date.now());
+          const { fileId } = await uploadScreenshotToDrive(buffer, mimeType, from, Date.now());
           mediaUrl = fileId;
         } catch (err) {
           console.error('Drive upload failed (collecting_email):', err instanceof Error ? err.message : err);
@@ -265,7 +265,7 @@ async function runEnrollmentMachine(
           const { buffer, mimeType } = await downloadWhatsAppMedia(imageId);
           const ts = Date.now();
           const driveRes = await uploadScreenshotToDrive(
-            buffer, mimeType, session.email || 'unknown@datacrumbs.org', ts,
+            buffer, mimeType, from, ts,
           );
           fileId = driveRes.fileId;
           webViewLink = driveRes.webViewLink;
@@ -321,7 +321,7 @@ async function runEnrollmentMachine(
           const { buffer, mimeType } = await downloadWhatsAppMedia(imageId);
           const ts = Date.now();
           const driveRes = await uploadScreenshotToDrive(
-            buffer, mimeType, session.email || 'unknown@datacrumbs.org', ts,
+            buffer, mimeType, from, ts,
           );
           fileId = driveRes.fileId;
           webViewLink = driveRes.webViewLink;
@@ -349,7 +349,7 @@ async function runEnrollmentMachine(
       if ((msgType === 'image' || msgType === 'document') && imageId) {
         try {
           const { buffer, mimeType } = await downloadWhatsAppMedia(imageId);
-          const { fileId } = await uploadScreenshotToDrive(buffer, mimeType, session.email ?? from, Date.now());
+          const { fileId } = await uploadScreenshotToDrive(buffer, mimeType, from, Date.now());
           mediaUrl = fileId;
         } catch (err) {
           console.error('Drive upload failed (approved):', err instanceof Error ? err.message : err);
@@ -455,7 +455,21 @@ export async function POST(req: NextRequest) {
       // ── 2. Save non-text messages so they appear in the dashboard ────────
       if (msgType !== 'text') {
         if (msgType === 'image' || msgType === 'document') {
-          await saveMessage({ from, text: '[image]', reply: '', timestamp: Date.now() });
+          let mediaUrl: string | undefined;
+          if (imageId) {
+            try {
+              const { buffer, mimeType } = await downloadWhatsAppMedia(imageId);
+              const { fileId } = await uploadScreenshotToDrive(buffer, mimeType, from, Date.now());
+              mediaUrl = fileId;
+            } catch (err) {
+              console.error('Drive upload failed (non-enrollment):', err instanceof Error ? err.message : err);
+            }
+          }
+          await saveMessage({
+            from, text: '[image]', reply: '', timestamp: Date.now(),
+            mediaType: 'image',
+            ...(mediaUrl ? { mediaUrl } : {}),
+          });
         }
         return;
       }
