@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { DiscountRequest } from '@/lib/redis';
 
 const NEON   = '#5ce46d';
@@ -13,6 +14,20 @@ function formatTime(ts: number) {
 }
 
 export default function DiscountsUI({ requests }: { requests: DiscountRequest[] }) {
+  const [search, setSearch] = useState('');
+
+  const filtered = search.trim()
+    ? requests.filter(r => {
+        const q = search.trim().toLowerCase();
+        return (
+          (r.name && r.name.toLowerCase().includes(q)) ||
+          (r.email && r.email.toLowerCase().includes(q)) ||
+          r.phone.includes(q.replace(/\D/g, '')) ||
+          r.message.toLowerCase().includes(q)
+        );
+      })
+    : requests;
+
   return (
     <div style={{ flex: 1, overflowY: 'auto' }}>
       <div style={{ padding: '32px 36px' }}>
@@ -23,18 +38,30 @@ export default function DiscountsUI({ requests }: { requests: DiscountRequest[] 
             <h1 style={{ fontSize: 28, fontWeight: 700, color: '#fff', margin: 0 }}>
               Discount Requests
             </h1>
-            <p style={{ fontSize: 13, color: '#9ca3af', marginTop: 4 }}>
+            <p style={{ fontSize: 13, color: '#9ca3af', marginTop: 4, marginBottom: 14 }}>
               Students who asked for financial support or a discount — {requests.length} request{requests.length !== 1 ? 's' : ''}
             </p>
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search by name, email, phone, or message…"
+              style={{
+                width: '100%', maxWidth: 400, boxSizing: 'border-box',
+                background: '#0d1511', border: `1px solid ${BORDER}`,
+                borderRadius: 8, padding: '8px 12px', fontSize: 13,
+                color: '#e5e7eb', outline: 'none',
+              }}
+            />
           </div>
 
-          {requests.length === 0 ? (
+          {filtered.length === 0 ? (
             <div style={{
               background: GLASS, border: `1px solid ${BORDER}`,
               borderRadius: 16, padding: 48,
               textAlign: 'center', color: '#6b7280', fontSize: 14,
             }}>
-              No discount requests yet.
+              {search.trim() ? 'No matching discount requests.' : 'No discount requests yet.'}
             </div>
           ) : (
             <div style={{
@@ -57,14 +84,14 @@ export default function DiscountsUI({ requests }: { requests: DiscountRequest[] 
                 <span>Date &amp; Time</span>
               </div>
 
-              {requests.map((r, i) => (
+              {filtered.map((r, i) => (
                 <div
                   key={i}
                   style={{
                     display: 'grid',
                     gridTemplateColumns: '140px 160px 120px 1fr 150px',
                     padding: '14px 20px',
-                    borderBottom: i < requests.length - 1 ? `1px solid ${BORDER}` : 'none',
+                    borderBottom: i < filtered.length - 1 ? `1px solid ${BORDER}` : 'none',
                     alignItems: 'start',
                     transition: 'background 0.15s',
                   }}

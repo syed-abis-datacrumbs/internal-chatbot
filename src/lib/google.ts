@@ -162,6 +162,64 @@ export async function appendDiscountRow(data: {
   });
 }
 
+// ── Leads ──────────────────────────────────────────────────────────────────
+
+const LEADS_TAB = 'agent leads';
+
+function formatLeadRow(name: string | null, phone: string, timestamp: number): string[] {
+  const dateStr = new Date(timestamp).toLocaleDateString('en-PK', {
+    timeZone: 'Asia/Karachi', day: '2-digit', month: 'short', year: 'numeric',
+  });
+  const timeStr = new Date(timestamp).toLocaleTimeString('en-PK', {
+    timeZone: 'Asia/Karachi', hour: '2-digit', minute: '2-digit', hour12: true,
+  });
+  return [name ?? '', `+${phone}`, dateStr, timeStr];
+}
+
+async function ensureLeadsHeader(sheets: ReturnType<typeof google.sheets>): Promise<void> {
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEET_ID,
+    range: `${LEADS_TAB}!A1:D1`,
+  });
+  if (!res.data.values?.length) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SHEET_ID,
+      range: `${LEADS_TAB}!A1`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [['Name', 'Phone', 'Date', 'Time']] },
+    });
+  }
+}
+
+export async function appendLeadRow(data: {
+  name: string | null;
+  phone: string;
+  timestamp: number;
+}): Promise<void> {
+  const sheets = google.sheets({ version: 'v4', auth: auth() });
+  await ensureLeadsHeader(sheets);
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SHEET_ID,
+    range: `${LEADS_TAB}!A:D`,
+    valueInputOption: 'USER_ENTERED',
+    requestBody: { values: [formatLeadRow(data.name, data.phone, data.timestamp)] },
+  });
+}
+
+export async function appendLeadRows(
+  rows: { name: string | null; phone: string; timestamp: number }[],
+): Promise<void> {
+  if (!rows.length) return;
+  const sheets = google.sheets({ version: 'v4', auth: auth() });
+  await ensureLeadsHeader(sheets);
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SHEET_ID,
+    range: `${LEADS_TAB}!A:D`,
+    valueInputOption: 'USER_ENTERED',
+    requestBody: { values: rows.map(r => formatLeadRow(r.name, r.phone, r.timestamp)) },
+  });
+}
+
 export async function updateSheetStatus(rowIndex: number, status: string): Promise<void> {
   if (rowIndex < 1) return;
   const sheets = google.sheets({ version: 'v4', auth: auth() });

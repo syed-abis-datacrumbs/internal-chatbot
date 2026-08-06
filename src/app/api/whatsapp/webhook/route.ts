@@ -8,13 +8,13 @@ import {
 import { getAIReply } from '@/lib/gemini';
 import { CORE_SYSTEM_PROMPT } from '@/lib/knowledge';
 import {
-  saveMessage, getRecentMessagesByPhone,
+  saveMessage, getRecentMessagesByPhone, hasPriorMessages,
   getActiveEnrollmentSession, saveEnrollmentSession,
   getContactProfile, saveContactProfile,
   saveDiscountRequest,
   type EnrollmentSession,
 } from '@/lib/redis';
-import { uploadScreenshotToDrive, appendEnrollmentRow, appendDiscountRow } from '@/lib/google';
+import { uploadScreenshotToDrive, appendEnrollmentRow, appendDiscountRow, appendLeadRow } from '@/lib/google';
 
 // ── GET: Meta webhook verification ───────────────────────────────────────────
 export async function GET(req: NextRequest) {
@@ -192,6 +192,23 @@ function isNegative(text: string): boolean {
   const t = text.trim().toLowerCase();
   return /^(no|nah|nope|not now|never\s?mind|leave it|nahi|nai|chodo|rehnay do|rehne do)\b/i.test(t)
     || /\b(no thanks|not interested|don'?t bother)\b/i.test(t);
+}
+
+// True if the message is a plain conversational closer with no real content —
+// "thanks", "ok", "no more questions", "that's all" — nothing that needs an AI answer.
+// Conservative: EVERY word in the message must be in the whitelist, or it's not a closer.
+function isConversationalCloser(text: string): boolean {
+  const cleaned = text.toLowerCase().replace(/[^\w\s']/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!cleaned || cleaned.length > 60) return false;
+  const CLOSER_WORDS = new Set([
+    'ok', 'okay', 'okey', 'k', 'alright', 'allright', 'thanks', 'thank', 'thankyou', 'thnx', 'tnx',
+    'no', 'not', 'more', 'questions', 'question', 'q', 'thats', "that's", 'that', 'all', 'got', 'it',
+    'sounds', 'good', 'cool', 'nice', 'great', 'sure', 'fine', 'perfect', 'awesome', 'appreciated',
+    'appreciate', 'bye', 'goodbye', 'done', 'yep', 'yeah', 'ya', 'shukriya', 'shukria', 'theek', 'thik',
+    'hai', 'ji', 'acha', 'achha', 'bas', 'bs', 'samajh', 'gaya', 'gai', 'aya', 'ay', 'right',
+  ]);
+  const words = cleaned.split(' ');
+  return words.every(w => CLOSER_WORDS.has(w));
 }
 
 // True if the message looks like a question the AI should answer
@@ -489,9 +506,10 @@ export async function POST(req: NextRequest) {
       const imageId   = message.image?.id ?? message.document?.id;
       const imageMime = message.image?.mime_type ?? message.document?.mime_type ?? 'image/jpeg';
 
-      const [session, contactProfile] = await Promise.all([
+      const [session, contactProfile, hadPriorMessages] = await Promise.all([
         getActiveEnrollmentSession(from),
         getContactProfile(from),
+        hasPriorMessages(from),
       ]);
 
       // Check if user explicitly stated their name in this message ("My name is John")
@@ -501,6 +519,15 @@ export async function POST(req: NextRequest) {
       }
 
       const explicitName = newlyStatedName || (contactProfile?.name && looksLikeName(contactProfile.name) ? contactProfile.name : undefined);
+
+      // ── New lead → log to the "agent leads" Google Sheet tab (once per contact) ──
+      if (!hadPriorMessages) {
+        try {
+          await appendLeadRow({ name: explicitName ?? null, phone: from, timestamp: Date.now() });
+        } catch (err) {
+          console.error('Failed to append lead to sheet:', err instanceof Error ? err.message : err);
+        }
+      }
 
       // ── 0. Bot toggle ────────────────────────────────────────────────────
       if (contactProfile?.botDisabled) {
@@ -718,12 +745,31 @@ export async function POST(req: NextRequest) {
         await saveContactProfile({ phone: from, name: text.trim(), nameAsked: false });
       }
 
+      // ── 5a3. Conversational closer ("thanks", "ok", "no more questions") ──
+      // Skip Gemini entirely so we don't get a fresh verbose "you're welcome" essay
+      // every time. First closer in a row gets a short graceful reply; any closer
+      // right after another closer gets just a nod, not a repeat of the same message.
+      if (isConversationalCloser(text)) {
+        const existingName = contactProfile?.name && looksLikeName(contactProfile.name) ? contactProfile.name : null;
+        const closerReply = contactProfile?.lastReplyWasClosing
+          ? '🙂'
+          : `You're welcome${existingName ? `, *${existingName}*` : ''}! 😊 Feel free to reach out anytime you have more questions.`;
+        await saveContactProfile({ phone: from, lastReplyWasClosing: true });
+        await sendWhatsAppMessage(from, closerReply);
+        await saveMessage({ from, text, reply: closerReply, timestamp: Date.now() });
+        return;
+      }
+
       const history: GeminiHistory = recentMsgs.flatMap(m => [
         ...(m.text && m.text !== '[image]' ? [{ role: 'user'  as const, parts: [{ text: m.text  }] }] : []),
         ...(m.reply                         ? [{ role: 'model' as const, parts: [{ text: m.reply }] }] : []),
       ]);
 
       let reply = await getAIReply(text, history);
+
+      if (contactProfile?.lastReplyWasClosing) {
+        await saveContactProfile({ phone: from, lastReplyWasClosing: false });
+      }
 
       if (!contactProfile?.name && !contactProfile?.nameAsked && recentMsgs.length === 1) {
         reply += '\n\nBy the way, may I know your name? 😊';

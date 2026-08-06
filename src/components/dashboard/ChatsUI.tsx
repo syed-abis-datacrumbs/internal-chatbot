@@ -62,8 +62,13 @@ export default function ChatsUI({ contacts: initial, total }: { contacts: Contac
   const [botDisabled, setBotDisabled] = useState<boolean>(false);
   const [toggling,    setToggling]    = useState(false);
   const [deleting,    setDeleting]    = useState<string | null>(null);
+  const [search,      setSearch]      = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLInputElement>(null);
+
+  const filteredContacts = search.trim()
+    ? contacts.filter(c => c.phone.includes(search.trim().replace(/\D/g, '')))
+    : contacts;
 
   // Poll for new messages every 5 seconds
   useEffect(() => {
@@ -156,17 +161,31 @@ export default function ChatsUI({ contacts: initial, total }: { contacts: Contac
       }}>
         <div style={{ padding: '16px 16px 12px', borderBottom: `1px solid ${BORDER}` }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>Conversations</div>
-          <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>
+          <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2, marginBottom: 10 }}>
             {contacts.length} contact{contacts.length !== 1 ? 's' : ''} · {total} message{total !== 1 ? 's' : ''}
+          </div>
+          <div style={{ position: 'relative' }}>
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search by phone number…"
+              style={{
+                width: '100%', boxSizing: 'border-box',
+                background: '#0d1511', border: `1px solid ${BORDER}`,
+                borderRadius: 8, padding: '7px 10px', fontSize: 12.5,
+                color: '#e5e7eb', outline: 'none',
+              }}
+            />
           </div>
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto' }}>
-          {contacts.length === 0 ? (
+          {filteredContacts.length === 0 ? (
             <div style={{ padding: 32, textAlign: 'center', color: '#6b7280', fontSize: 13 }}>
-              No conversations yet
+              {search.trim() ? 'No matching conversations' : 'No conversations yet'}
             </div>
-          ) : contacts.map(c => {
+          ) : filteredContacts.map(c => {
             const isActive   = c.phone === selected;
             const isHovered  = hov === c.phone;
             const h          = hueFromPhone(c.phone);

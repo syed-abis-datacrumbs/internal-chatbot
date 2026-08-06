@@ -55,6 +55,8 @@ export interface ContactProfile {
   discountOriginalMessage?: string;
   discountCollectedName?: string;
   discountCollectedEmail?: string;
+  // True right after we've sent a "you're welcome, anything else?" style closing reply
+  lastReplyWasClosing?: boolean;
 }
 
 export async function getContactProfile(phone: string): Promise<ContactProfile | null> {
@@ -88,6 +90,12 @@ export async function deleteMessagesByPhone(phone: string): Promise<number> {
   await db.collection('contact_profiles').deleteOne({ phone });
   await db.collection('enrollment_sessions').deleteMany({ phone });
   return result.deletedCount;
+}
+
+export async function hasPriorMessages(phone: string): Promise<boolean> {
+  const db  = await getDb();
+  const doc = await db.collection('wa_messages').findOne({ from: phone }, { projection: { _id: 1 } });
+  return !!doc;
 }
 
 export async function getRecentMessagesByPhone(phone: string, limit = 10): Promise<ChatMessage[]> {
