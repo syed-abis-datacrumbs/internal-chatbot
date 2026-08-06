@@ -105,7 +105,12 @@ function needsAffordabilityHelp(text: string): boolean {
     /financial (help|support|issue|problem|hardship)/i.test(t) ||
     /\bfee (bari|zyada|kam|reduce)\b/i.test(t) ||
     /\bkoi discount\b/i.test(t) ||
-    /discount (chahiye|dena|do|mil)/i.test(t)
+    /discount (chahiye|dena|do|mil)/i.test(t) ||
+    /i (want|need|require|wanna) (a |some )?discount/i.test(t) ||
+    /give.{0,10}discount/i.test(t) ||
+    /\bstudent (discount|rate|concession|deal)\b/i.test(t) ||
+    /\bpersonal discount\b/i.test(t) ||
+    /any (other |special )?discount/i.test(t)
   );
 }
 
@@ -560,8 +565,14 @@ export async function POST(req: NextRequest) {
         await saveContactProfile({ phone: from, name: text.trim(), nameAsked: false });
       }
 
-      // ── 5b. User is clearly signalling they can't afford — skip Gemini, collect details ──
-      if (needsAffordabilityHelp(text)) {
+      // ── 5b. Discount collection trigger ──────────────────────────────────
+      // Fire if: (a) user has explicit affordability signal, OR
+      //          (b) group discount was already explained AND they're STILL asking about discount
+      const groupDiscountExplained = recentMsgs.some(m => m.reply && m.reply.includes('20%'));
+      const stillAskingDiscount    = /\bdiscount\b/i.test(text);
+      const shouldCollectDiscount  = needsAffordabilityHelp(text) || (groupDiscountExplained && stillAskingDiscount);
+
+      if (shouldCollectDiscount) {
         const existingName = contactProfile?.name && looksLikeName(contactProfile.name) ? contactProfile.name : null;
         let discountReply: string;
         const groupDiscountNote = `By the way, we also offer a special *20% group discount* when 2+ students enroll together! 😊\n\n`;
