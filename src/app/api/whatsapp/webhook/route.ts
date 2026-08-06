@@ -93,6 +93,22 @@ function extractExplicitNameFromText(text: string): string | null {
   return null;
 }
 
+// True if the user is signalling they can't afford / asking for personal financial help
+function needsAffordabilityHelp(text: string): boolean {
+  const t = text.toLowerCase();
+  return (
+    /too? (much|expensive)/i.test(t) ||
+    /can.?t afford/i.test(t) ||
+    /\bafford\b/i.test(t) ||
+    /not affordable/i.test(t) ||
+    /\bscholarship\b/i.test(t) ||
+    /financial (help|support|issue|problem|hardship)/i.test(t) ||
+    /\bfee (bari|zyada|kam|reduce)\b/i.test(t) ||
+    /\bkoi discount\b/i.test(t) ||
+    /discount (chahiye|dena|do|mil)/i.test(t)
+  );
+}
+
 // True if the message looks like a question the AI should answer
 function isQuestion(text: string): boolean {
   if (text.trim().endsWith('?')) return true;
@@ -544,6 +560,23 @@ export async function POST(req: NextRequest) {
         await saveContactProfile({ phone: from, name: text.trim(), nameAsked: false });
       }
 
+      // ── 5b. User is clearly signalling they can't afford — skip Gemini, collect details ──
+      if (needsAffordabilityHelp(text)) {
+        const existingName = contactProfile?.name && looksLikeName(contactProfile.name) ? contactProfile.name : null;
+        let discountReply: string;
+        const groupDiscountNote = `By the way, we also offer a special *20% group discount* when 2+ students enroll together! 😊\n\n`;
+        if (existingName) {
+          discountReply = `I completely understand, *${existingName}*!\n\n${groupDiscountNote}To forward your request to our management team, please share your *email address*.\n\nExample: _johndoe@gmail.com_`;
+          await saveContactProfile({ phone: from, discountPending: true, discountOriginalMessage: text, discountCollectedName: existingName });
+        } else {
+          discountReply = `I completely understand your situation!\n\n${groupDiscountNote}To forward your request to our management team, please share your *full name* and *email address*.\n\nExample: _John Doe, johndoe@gmail.com_`;
+          await saveContactProfile({ phone: from, discountPending: true, discountOriginalMessage: text });
+        }
+        await sendWhatsAppMessage(from, discountReply);
+        await saveMessage({ from, text, reply: discountReply, timestamp: Date.now() });
+        return;
+      }
+
       const history: GeminiHistory = recentMsgs.flatMap(m => [
         ...(m.text && m.text !== '[image]' ? [{ role: 'user'  as const, parts: [{ text: m.text  }] }] : []),
         ...(m.reply                         ? [{ role: 'model' as const, parts: [{ text: m.reply }] }] : []),
@@ -556,9 +589,15 @@ export async function POST(req: NextRequest) {
         await saveContactProfile({ phone: from, nameAsked: true });
       }
 
-      // Detect escalation reply → student asked for discount / financial help
-      // Instead of saving immediately, ask for name + email first
-      if (/noted down your request/i.test(reply)) {
+      // Backup: detect any escalation phrase in Gemini's reply (broader regex to catch paraphrases)
+      const isEscalation =
+        /noted.{0,30}request/i.test(reply) ||
+        /forward.{0,30}(request|management)/i.test(reply) ||
+        /management.{0,50}reach.{0,20}out/i.test(reply) ||
+        /team.{0,50}will.{0,20}(reach|contact)/i.test(reply) ||
+        /contact our support team/i.test(reply);
+
+      if (isEscalation) {
         const existingName = contactProfile?.name && looksLikeName(contactProfile.name) ? contactProfile.name : null;
         if (existingName) {
           reply = `I completely understand, *${existingName}*! 😊 To forward your request to our management team, please share your *email address*.\n\nExample: _johndoe@gmail.com_`;
