@@ -233,7 +233,8 @@ function isConversationalCloser(text: string): boolean {
 function isPureGreeting(text: string): boolean {
   const t = text.trim();
   if (!t || t.includes('?') || t.length > 40) return false;
-  return /^(hi+|hello+|hey+|salam|assalam[\s-]?o?\s?alaikum|assallamo?\s?allikum|aoa|good\s?(morning|afternoon|evening))\s*(there)?[.!\s]*$/i.test(t);
+  // as+alam matches both "Asalam" and "Assalam" (1 or 2 s's) — common spelling variance
+  return /^(hi+|hello+|hey+|salam|as+alam[u\s-]*o?[\s-]*alaikum|assallamo?\s?allikum|aoa|good\s?(morning|afternoon|evening))\s*(there)?[.!\s]*$/i.test(t);
 }
 
 // True if the message looks like a question the AI should answer
@@ -846,6 +847,21 @@ export async function POST(req: NextRequest) {
 
       let reply = await getAIReply(text, history);
 
+      // Fallback for greeting phrasings isPureGreeting's regex doesn't catch (e.g. "Asalam-o-Alaikum",
+      // "Hi there, how are you") — if Gemini's own judgment still produced the official welcome
+      // block on this contact's first-ever message, attach the brochure here too, since the
+      // pre-Gemini 4b shortcut above never fired for it.
+      let sentDocWithReply = false;
+      const looksLikeWelcomeBlock = reply.includes("I'm Zoya from DataCrumbs") && reply.includes('4-Month AI & Data Science Bootcamp');
+      if (!hadPriorMessages && looksLikeWelcomeBlock) {
+        try {
+          await sendWhatsAppDocument(from);
+          sentDocWithReply = true;
+        } catch (err) {
+          console.error('Failed to send brochure alongside Gemini welcome reply:', err instanceof Error ? err.message : err);
+        }
+      }
+
       if (contactProfile?.lastReplyWasClosing) {
         await saveContactProfile({ phone: from, lastReplyWasClosing: false });
       }
@@ -895,7 +911,10 @@ export async function POST(req: NextRequest) {
       }
 
       await sendWhatsAppMessage(from, reply);
-      await saveMessage({ from, text, reply, timestamp: Date.now() });
+      await saveMessage({
+        from, text, reply, timestamp: Date.now(),
+        ...(sentDocWithReply ? { mediaType: 'document' as const } : {}),
+      });
 
     } catch (err: unknown) {
       console.error('Webhook error:', err instanceof Error ? err.message : err);
