@@ -752,6 +752,23 @@ export async function POST(req: NextRequest) {
         return;
       }
 
+      // ── 0f. Conversational closer ("thanks", "ok", "no more questions") ──
+      // Checked BEFORE the enrollment-session branch so a stuck/abandoned session
+      // (e.g. someone started enrolling, got distracted, never provided name+email)
+      // can't hijack every later "ok"/"thanks" into runEnrollmentMachine's raw Gemini
+      // fallback, which has no concept of "don't repeat yourself" — that was producing
+      // a fresh verbose reply to every single closer instead of a short acknowledgment.
+      if (msgType === 'text' && isConversationalCloser(text)) {
+        const existingName = contactProfile?.name && looksLikeName(contactProfile.name) ? contactProfile.name : null;
+        const closerReply = contactProfile?.lastReplyWasClosing
+          ? '🙂'
+          : `You're welcome${existingName ? `, *${existingName}*` : ''}! 😊 Feel free to reach out anytime you have more questions.`;
+        await saveContactProfile({ phone: from, lastReplyWasClosing: true });
+        await sendWhatsAppMessage(from, closerReply);
+        await saveMessage({ from, text, reply: closerReply, timestamp: Date.now() });
+        return;
+      }
+
       // ── 1. Active enrollment session ─────────────────────────────────────
       if (session) {
         const history: GeminiHistory = recentMsgs.flatMap(m => [
@@ -846,21 +863,6 @@ export async function POST(req: NextRequest) {
       if (contactProfile?.nameAsked && !contactProfile?.name && looksLikeName(text)) {
         await saveContactProfile({ phone: from, name: text.trim(), nameAsked: false });
         await syncLeadNameIfNew(from, contactProfile?.name, text.trim());
-      }
-
-      // ── 5a3. Conversational closer ("thanks", "ok", "no more questions") ──
-      // Skip Gemini entirely so we don't get a fresh verbose "you're welcome" essay
-      // every time. First closer in a row gets a short graceful reply; any closer
-      // right after another closer gets just a nod, not a repeat of the same message.
-      if (isConversationalCloser(text)) {
-        const existingName = contactProfile?.name && looksLikeName(contactProfile.name) ? contactProfile.name : null;
-        const closerReply = contactProfile?.lastReplyWasClosing
-          ? '🙂'
-          : `You're welcome${existingName ? `, *${existingName}*` : ''}! 😊 Feel free to reach out anytime you have more questions.`;
-        await saveContactProfile({ phone: from, lastReplyWasClosing: true });
-        await sendWhatsAppMessage(from, closerReply);
-        await saveMessage({ from, text, reply: closerReply, timestamp: Date.now() });
-        return;
       }
 
       const history: GeminiHistory = recentMsgs.flatMap(m => [

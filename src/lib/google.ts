@@ -105,7 +105,10 @@ export async function appendEnrollmentRow(data: {
   const row = [
     data.name,
     data.email,
-    `+${data.phone}`,
+    // Leading ' forces Sheets to store this as literal text under USER_ENTERED —
+    // without it, "+923..." is parsed as a unary-plus numeric expression and the
+    // '+' silently gets dropped, breaking every exact-match phone lookup later.
+    `'+${data.phone}`,
     new Date(data.timestamp).toLocaleString('en-PK', { timeZone: 'Asia/Karachi' }),
     data.driveLink,
     'Pending',
@@ -156,7 +159,7 @@ export async function appendDiscountRow(data: {
       values: [[
         data.name,
         data.email ?? '',
-        `+${data.phone}`,
+        `'+${data.phone}`, // leading ' forces text — see appendEnrollmentRow for why
         data.message,
         new Date(data.timestamp).toLocaleString('en-PK', { timeZone: 'Asia/Karachi' }),
         '',
@@ -203,7 +206,8 @@ function formatLeadRow(name: string | null, phone: string, timestamp: number): s
   const timeStr = new Date(timestamp).toLocaleTimeString('en-PK', {
     timeZone: 'Asia/Karachi', hour: '2-digit', minute: '2-digit', hour12: true,
   });
-  return [name ?? '', `+${phone}`, dateStr, timeStr];
+  // Leading ' forces text under USER_ENTERED — see appendEnrollmentRow for why
+  return [name ?? '', `'+${phone}`, dateStr, timeStr];
 }
 
 async function ensureLeadsHeader(sheets: ReturnType<typeof google.sheets>): Promise<void> {
