@@ -304,6 +304,7 @@ async function runEnrollmentMachine(
   imageMime?: string,
   history: GeminiHistory = [],
   explicitName?: string,
+  priorContactName?: string | null,
 ): Promise<{ reply: string; mediaUrl?: string }> {
   let reply = '';
   let mediaUrl: string | undefined;
@@ -312,6 +313,7 @@ async function runEnrollmentMachine(
   const candidateName = session.name || explicitName;
   if (!session.name && candidateName && looksLikeName(candidateName)) {
     session.name = candidateName;
+    await syncLeadNameIfNew(from, priorContactName, session.name);
   }
 
   // Prevent Gemini from adding its own enrollment nudge or assuming payment queries on pure greetings
@@ -350,6 +352,7 @@ async function runEnrollmentMachine(
         }
         session.name  = nameOnly;
         session.state = 'awaiting_screenshot';
+        await syncLeadNameIfNew(from, priorContactName, session.name);
         reply = `Perfect, *${session.name}*! 🎉\n\n${buildPaymentMsg()}`;
         break;
       }
@@ -366,6 +369,7 @@ async function runEnrollmentMachine(
           session.name  = name;
           session.email = email;
           session.state = 'awaiting_screenshot';
+          await syncLeadNameIfNew(from, priorContactName, session.name);
           reply = `Perfect, *${session.name}*! 🎉\n\n${buildPaymentMsg()}`;
         }
       } else if (email && !name) {
@@ -382,6 +386,7 @@ async function runEnrollmentMachine(
         } else {
           session.name  = name;
           session.state = 'collecting_email';
+          await syncLeadNameIfNew(from, priorContactName, session.name);
           reply = `Thanks *${session.name}*! 😊 Now please share your *email address*.`;
         }
       } else {
@@ -777,7 +782,7 @@ export async function POST(req: NextRequest) {
         ]);
 
         const { reply, mediaUrl } = await runEnrollmentMachine(
-          from, session, msgType, text, imageId, imageMime, history, explicitName,
+          from, session, msgType, text, imageId, imageMime, history, explicitName, contactProfile?.name,
         );
         await sendWhatsAppMessage(from, reply);
         const isMediaMsg = msgType === 'image' || msgType === 'document';
