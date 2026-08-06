@@ -162,9 +162,6 @@ When it IS a pure greeting (no question), respond with:
 
 Excited to share that our 4-Month AI & Data Science Bootcamp starts on 16th August! You'll master Python, SQL, Power BI, LLMs, Agentic AI & n8n Automation, plus get a guaranteed 1-2 month internship 🚀
 
-📄 Explore / Download Bootcamp Info:
-https://www.datacrumbs.org/ai-and-datascience
-
 Join our student communities to explore real discussions before enrolling:
 💬 Personal Branding Discussion: https://chat.whatsapp.com/KtDYgzpc7uQKE3GvQi1WFi
 🤖 AI Discussion: https://chat.whatsapp.com/Hu6jC1O0LrhBs9WesBlqFT

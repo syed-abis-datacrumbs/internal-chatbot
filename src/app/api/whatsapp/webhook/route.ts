@@ -507,14 +507,95 @@ export async function POST(req: NextRequest) {
         return;
       }
 
+      // Conversation context — fetched once and reused by every branch below
+      const recentMsgs = msgType === 'text' ? await getRecentMessagesByPhone(from, 10) : [];
+
+      // ── 0c. Discount collection state ────────────────────────────────────
+      // Runs BEFORE the enrollment-session branch so it applies to every user,
+      // including those with an existing (e.g. approved) enrollment session.
+      if (msgType === 'text' && contactProfile?.discountPending) {
+        const collectedName  = contactProfile.discountCollectedName;
+        const collectedEmail = contactProfile.discountCollectedEmail;
+
+        let finalName:  string | null = collectedName  ?? null;
+        let finalEmail: string | null = collectedEmail ?? null;
+
+        const { email: parsedEmail, name: parsedName } = extractEmailAndName(text);
+        if (parsedEmail && !finalEmail) finalEmail = parsedEmail;
+        if (parsedName && looksLikeName(parsedName) && !finalName) finalName = parsedName;
+        // Raw text as name if short and looks like one
+        if (!finalName && looksLikeName(text.trim())) finalName = text.trim();
+
+        let discountReply: string;
+
+        if (finalName && finalEmail) {
+          const ts = Date.now();
+          try {
+            await saveDiscountRequest({ phone: from, name: finalName, email: finalEmail, message: contactProfile.discountOriginalMessage || text, timestamp: ts });
+            await appendDiscountRow({ name: finalName, phone: from, email: finalEmail, message: contactProfile.discountOriginalMessage || text, timestamp: ts });
+          } catch (err) {
+            console.error('Failed to save discount request:', err instanceof Error ? err.message : err);
+          }
+          await saveContactProfile({ phone: from, name: finalName, discountPending: false });
+          discountReply = `✅ Thank you, *${finalName}*! Your request has been forwarded to our management team. They'll reach out to you directly on this WhatsApp number shortly. 😊`;
+        } else if (finalEmail && !finalName) {
+          await saveContactProfile({ phone: from, discountCollectedEmail: finalEmail });
+          discountReply = `Got your email! 😊 Could you also share your *full name*, please?\n\nExample: _John Doe_`;
+        } else if (finalName && !finalEmail) {
+          await saveContactProfile({ phone: from, name: finalName, discountCollectedName: finalName });
+          discountReply = `Thanks *${finalName}*! 😊 Could you also share your *email address*?\n\nExample: _johndoe@gmail.com_`;
+        } else {
+          discountReply = `Please share your *full name* and *email address* so we can forward your request to the management team.\n\nExample: _John Doe, johndoe@gmail.com_`;
+        }
+
+        await sendWhatsAppMessage(from, discountReply);
+        await saveMessage({ from, text, reply: discountReply, timestamp: Date.now() });
+        return;
+      }
+
+      // ── 0d. B2B / vendor pitch — decline politely, never route into student flows ──
+      if (msgType === 'text' && isBusinessPitch(text)) {
+        const pitchReply = `Thank you for reaching out! 🙏\n\nWe're a student-focused training platform and don't take vendor or partnership meetings through this channel.\n\nFor business enquiries, please email *info@datacrumbs.org*.`;
+        await sendWhatsAppMessage(from, pitchReply);
+        await saveMessage({ from, text, reply: pitchReply, timestamp: Date.now() });
+        return;
+      }
+
+      // ── 0e. Discount collection trigger ──────────────────────────────────
+      // Fires when: (a) explicit affordability/discount request, OR
+      //             (b) vague sticker-shock reaction right after we quoted the fee, OR
+      //             (c) group discount already explained AND they're STILL asking about discount
+      const lastTwoReplies = recentMsgs.slice(-2).map(m => m.reply || '').join(' ');
+      const feeJustQuoted  = /7,?499|7499|per month|\/month|\bfee\b|\bprice\b/i.test(lastTwoReplies);
+
+      const groupDiscountExplained = recentMsgs.some(m => m.reply && m.reply.includes('20%'));
+      const stillAskingDiscount    = /\bdiscount\b/i.test(text);
+
+      const shouldCollectDiscount =
+        msgType === 'text' && (
+          needsAffordabilityHelp(text) ||
+          (feeJustQuoted && isPriceShockReaction(text)) ||
+          (groupDiscountExplained && stillAskingDiscount)
+        );
+
+      if (shouldCollectDiscount) {
+        const existingName = contactProfile?.name && looksLikeName(contactProfile.name) ? contactProfile.name : null;
+        let discountReply: string;
+        const groupDiscountNote = `By the way, we also offer a special *20% group discount* when 2+ students enroll together! 😊\n\n`;
+        if (existingName) {
+          discountReply = `I completely understand, *${existingName}*!\n\n${groupDiscountNote}To forward your request to our management team, please share your *email address*.\n\nExample: _johndoe@gmail.com_`;
+          await saveContactProfile({ phone: from, discountPending: true, discountOriginalMessage: text, discountCollectedName: existingName });
+        } else {
+          discountReply = `I completely understand your situation!\n\n${groupDiscountNote}To forward your request to our management team, please share your *full name* and *email address*.\n\nExample: _John Doe, johndoe@gmail.com_`;
+          await saveContactProfile({ phone: from, discountPending: true, discountOriginalMessage: text });
+        }
+        await sendWhatsAppMessage(from, discountReply);
+        await saveMessage({ from, text, reply: discountReply, timestamp: Date.now() });
+        return;
+      }
+
       // ── 1. Active enrollment session ─────────────────────────────────────
       if (session) {
-        // Fetch AI context for all states where the user might ask questions
-        const needsAI = session.state !== 'approved';
-        const recentMsgs = needsAI
-          ? await getRecentMessagesByPhone(from, 10)
-          : [];
-
         const history: GeminiHistory = recentMsgs.flatMap(m => [
           ...(m.text && m.text !== '[image]' ? [{ role: 'user'  as const, parts: [{ text: m.text  }] }] : []),
           ...(m.reply                         ? [{ role: 'model' as const, parts: [{ text: m.reply }] }] : []),
@@ -579,91 +660,9 @@ export async function POST(req: NextRequest) {
         return;
       }
 
-      // ── 5a. Discount collection state ────────────────────────────────────
-      if (contactProfile?.discountPending) {
-        const collectedName  = contactProfile.discountCollectedName;
-        const collectedEmail = contactProfile.discountCollectedEmail;
-
-        let finalName:  string | null = collectedName  ?? null;
-        let finalEmail: string | null = collectedEmail ?? null;
-
-        const { email: parsedEmail, name: parsedName } = extractEmailAndName(text);
-        if (parsedEmail && !finalEmail) finalEmail = parsedEmail;
-        if (parsedName && looksLikeName(parsedName) && !finalName) finalName = parsedName;
-        // Raw text as name if short and looks like one
-        if (!finalName && looksLikeName(text.trim())) finalName = text.trim();
-
-        let discountReply: string;
-
-        if (finalName && finalEmail) {
-          const ts = Date.now();
-          try {
-            await saveDiscountRequest({ phone: from, name: finalName, email: finalEmail, message: contactProfile.discountOriginalMessage || text, timestamp: ts });
-            await appendDiscountRow({ name: finalName, phone: from, email: finalEmail, message: contactProfile.discountOriginalMessage || text, timestamp: ts });
-          } catch (err) {
-            console.error('Failed to save discount request:', err instanceof Error ? err.message : err);
-          }
-          await saveContactProfile({ phone: from, name: finalName, discountPending: false });
-          discountReply = `✅ Thank you, *${finalName}*! Your request has been forwarded to our management team. They'll reach out to you directly on this WhatsApp number shortly. 😊`;
-        } else if (finalEmail && !finalName) {
-          await saveContactProfile({ phone: from, discountCollectedEmail: finalEmail });
-          discountReply = `Got your email! 😊 Could you also share your *full name*, please?\n\nExample: _John Doe_`;
-        } else if (finalName && !finalEmail) {
-          await saveContactProfile({ phone: from, name: finalName, discountCollectedName: finalName });
-          discountReply = `Thanks *${finalName}*! 😊 Could you also share your *email address*?\n\nExample: _johndoe@gmail.com_`;
-        } else {
-          discountReply = `Please share your *full name* and *email address* so we can forward your request to the management team.\n\nExample: _John Doe, johndoe@gmail.com_`;
-        }
-
-        await sendWhatsAppMessage(from, discountReply);
-        await saveMessage({ from, text, reply: discountReply, timestamp: Date.now() });
-        return;
-      }
-
       // ── 5. Normal Gemini flow ─────────────────────────────────────────────
-      const recentMsgs = await getRecentMessagesByPhone(from, 10);
-
       if (contactProfile?.nameAsked && !contactProfile?.name && looksLikeName(text)) {
         await saveContactProfile({ phone: from, name: text.trim(), nameAsked: false });
-      }
-
-      // ── 5a2. B2B / vendor pitch — decline politely, never route into student flows ──
-      if (isBusinessPitch(text)) {
-        const pitchReply = `Thank you for reaching out! 🙏\n\nWe're a student-focused training platform and don't take vendor or partnership meetings through this channel.\n\nFor business enquiries, please email *info@datacrumbs.org*.`;
-        await sendWhatsAppMessage(from, pitchReply);
-        await saveMessage({ from, text, reply: pitchReply, timestamp: Date.now() });
-        return;
-      }
-
-      // ── 5b. Discount collection trigger ──────────────────────────────────
-      // Fires when: (a) explicit affordability/discount request, OR
-      //             (b) vague sticker-shock reaction right after we quoted the fee, OR
-      //             (c) group discount already explained AND they're STILL asking about discount
-      const lastTwoReplies = recentMsgs.slice(-2).map(m => m.reply || '').join(' ');
-      const feeJustQuoted  = /7,?499|7499|per month|\/month|\bfee\b|\bprice\b/i.test(lastTwoReplies);
-
-      const groupDiscountExplained = recentMsgs.some(m => m.reply && m.reply.includes('20%'));
-      const stillAskingDiscount    = /\bdiscount\b/i.test(text);
-
-      const shouldCollectDiscount =
-        needsAffordabilityHelp(text) ||
-        (feeJustQuoted && isPriceShockReaction(text)) ||
-        (groupDiscountExplained && stillAskingDiscount);
-
-      if (shouldCollectDiscount) {
-        const existingName = contactProfile?.name && looksLikeName(contactProfile.name) ? contactProfile.name : null;
-        let discountReply: string;
-        const groupDiscountNote = `By the way, we also offer a special *20% group discount* when 2+ students enroll together! 😊\n\n`;
-        if (existingName) {
-          discountReply = `I completely understand, *${existingName}*!\n\n${groupDiscountNote}To forward your request to our management team, please share your *email address*.\n\nExample: _johndoe@gmail.com_`;
-          await saveContactProfile({ phone: from, discountPending: true, discountOriginalMessage: text, discountCollectedName: existingName });
-        } else {
-          discountReply = `I completely understand your situation!\n\n${groupDiscountNote}To forward your request to our management team, please share your *full name* and *email address*.\n\nExample: _John Doe, johndoe@gmail.com_`;
-          await saveContactProfile({ phone: from, discountPending: true, discountOriginalMessage: text });
-        }
-        await sendWhatsAppMessage(from, discountReply);
-        await saveMessage({ from, text, reply: discountReply, timestamp: Date.now() });
-        return;
       }
 
       const history: GeminiHistory = recentMsgs.flatMap(m => [
