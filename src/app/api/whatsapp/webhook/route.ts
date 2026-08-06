@@ -143,8 +143,11 @@ async function runEnrollmentMachine(
     session.name = candidateName;
   }
 
-  // Prevent Gemini from adding its own enrollment nudge — the code appends one precisely
-  const enrollmentSystemPrompt = `${CORE_SYSTEM_PROMPT}\n\nIMPORTANT: The user is currently mid-enrollment. Answer their question directly and concisely. Do NOT add unnecessary prompts or reminders asking for their name, email, or payment screenshots.`;
+  // Prevent Gemini from adding its own enrollment nudge or assuming payment queries on pure greetings
+  const enrollmentSystemPrompt = `${CORE_SYSTEM_PROMPT}\n\nIMPORTANT INSTRUCTIONS FOR IN-PROGRESS ENROLLMENT:
+- If the user sends a simple greeting (e.g. "hi", "hello", "salam", "hey", "hi there"), greet them back naturally and ask how you can assist them today. Do NOT mention payment verification or enrollment status unless they explicitly ask about payment or receipt status.
+- If the user asks a general question (curriculum, python, duration, timings, fee), answer their question directly and concisely.
+- Do NOT append redundant reminders asking for name, email, or payment screenshots unless requested.`;
 
   switch (session.state) {
 
