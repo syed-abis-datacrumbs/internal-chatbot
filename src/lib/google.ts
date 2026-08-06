@@ -137,20 +137,20 @@ export async function appendDiscountRow(data: {
   // Ensure headers exist
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
-    range: `${tab}!A1:E1`,
+    range: `${tab}!A1:F1`,
   });
   if (!res.data.values?.length) {
     await sheets.spreadsheets.values.update({
       spreadsheetId: SHEET_ID,
       range: `${tab}!A1`,
       valueInputOption: 'USER_ENTERED',
-      requestBody: { values: [['Name', 'Email', 'Phone', 'Message', 'Submitted (PKT)']] },
+      requestBody: { values: [['Name', 'Email', 'Phone', 'Message', 'Submitted (PKT)', 'Comment']] },
     });
   }
 
   await sheets.spreadsheets.values.append({
     spreadsheetId: SHEET_ID,
-    range: `${tab}!A:E`,
+    range: `${tab}!A:F`,
     valueInputOption: 'USER_ENTERED',
     requestBody: {
       values: [[
@@ -159,9 +159,39 @@ export async function appendDiscountRow(data: {
         `+${data.phone}`,
         data.message,
         new Date(data.timestamp).toLocaleString('en-PK', { timeZone: 'Asia/Karachi' }),
+        '',
       ]],
     },
   });
+}
+
+// Updates the Comment column (F) on the most recent Discount row for this phone —
+// used when a known discount requester sends a follow-up/counter-offer, so the
+// existing row is updated rather than a confusing duplicate row being created.
+export async function updateDiscountRowComment(phone: string, comment: string): Promise<void> {
+  const sheets = google.sheets({ version: 'v4', auth: auth() });
+  const tab    = DISCOUNT_TAB;
+  const target = `+${phone}`;
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEET_ID,
+    range: `${tab}!A:F`,
+  });
+  const rows = res.data.values ?? [];
+
+  // Search from the bottom so the MOST RECENT matching row wins if there are several
+  for (let i = rows.length - 1; i >= 1; i--) {
+    if (rows[i][2] === target) {
+      const rowNumber = i + 1;
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SHEET_ID,
+        range: `${tab}!F${rowNumber}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [[comment]] },
+      });
+      return;
+    }
+  }
 }
 
 // ── Leads ──────────────────────────────────────────────────────────────────
@@ -218,6 +248,34 @@ export async function appendLeadRows(
     valueInputOption: 'USER_ENTERED',
     requestBody: { values: rows.map(r => formatLeadRow(r.name, r.phone, r.timestamp)) },
   });
+}
+
+// Backfills the Name column once we learn a contact's name after their lead row
+// was already written with a blank name. Only touches a row whose Name is still empty.
+export async function updateLeadName(phone: string, name: string): Promise<void> {
+  const sheets = google.sheets({ version: 'v4', auth: auth() });
+  const target = `+${phone}`;
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEET_ID,
+    range: `${LEADS_TAB}!A:D`,
+  });
+  const rows = res.data.values ?? [];
+
+  for (let i = 1; i < rows.length; i++) {
+    const rowPhone = rows[i][1];
+    const rowName  = rows[i][0];
+    if (rowPhone === target && !rowName) {
+      const rowNumber = i + 1;
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SHEET_ID,
+        range: `${LEADS_TAB}!A${rowNumber}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [[name]] },
+      });
+      return;
+    }
+  }
 }
 
 export async function updateSheetStatus(rowIndex: number, status: string): Promise<void> {

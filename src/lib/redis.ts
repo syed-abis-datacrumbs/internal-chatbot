@@ -55,6 +55,9 @@ export interface ContactProfile {
   discountOriginalMessage?: string;
   discountCollectedName?: string;
   discountCollectedEmail?: string;
+  // True once a discount_requests record exists for this contact — later price
+  // pushback/negotiation messages update that record instead of restarting the offer flow
+  hasSubmittedDiscountRequest?: boolean;
   // True right after we've sent a "you're welcome, anything else?" style closing reply
   lastReplyWasClosing?: boolean;
 }
@@ -257,6 +260,7 @@ export interface DiscountRequest {
   email?: string;
   message: string;
   timestamp: number;
+  comment?: string; // latest follow-up / negotiation note ("can only pay 4k")
 }
 
 export async function saveDiscountRequest(data: DiscountRequest): Promise<void> {
@@ -272,6 +276,17 @@ export async function getDiscountRequests(): Promise<DiscountRequest[]> {
     .sort({ timestamp: -1 })
     .toArray();
   return docs.map(({ _id, ...rest }) => rest as DiscountRequest);
+}
+
+// Updates the most recent discount request for this phone with a follow-up comment
+// (e.g. a later counter-offer like "can only pay 4k"), instead of creating a new record.
+export async function updateDiscountRequestComment(phone: string, comment: string): Promise<void> {
+  const db = await getDb();
+  await db.collection('discount_requests').findOneAndUpdate(
+    { phone },
+    { $set: { comment } },
+    { sort: { timestamp: -1 } },
+  );
 }
 
 // ── Bot Config ─────────────────────────────────────────────────────────────

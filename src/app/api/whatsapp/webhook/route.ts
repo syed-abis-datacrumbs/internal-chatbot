@@ -11,10 +11,14 @@ import {
   saveMessage, getRecentMessagesByPhone, hasPriorMessages,
   getActiveEnrollmentSession, saveEnrollmentSession,
   getContactProfile, saveContactProfile,
-  saveDiscountRequest,
+  saveDiscountRequest, updateDiscountRequestComment,
   type EnrollmentSession,
 } from '@/lib/redis';
-import { uploadScreenshotToDrive, appendEnrollmentRow, appendDiscountRow, appendLeadRow } from '@/lib/google';
+import {
+  uploadScreenshotToDrive, appendEnrollmentRow,
+  appendDiscountRow, updateDiscountRowComment,
+  appendLeadRow, updateLeadName,
+} from '@/lib/google';
 
 // ── GET: Meta webhook verification ───────────────────────────────────────────
 export async function GET(req: NextRequest) {
@@ -98,15 +102,25 @@ function extractExplicitNameFromText(text: string): string | null {
   return null;
 }
 
-// Gratitude — "thanks so much" must never be mistaken for a price complaint
-function isGratitude(text: string): boolean {
-  return /\b(thanks|thank\s?you|thankyou|thnx|tnx|shukriya|shukria|jazak|appreciate)\b/i.test(text);
+// Pure gratitude ONLY — e.g. "thank you so much" — must never be mistaken for a
+// price complaint. Deliberately strict (every word must be gratitude-vocabulary):
+// "thank you but I can only pay 4k" has real content beyond the "thank you" prefix,
+// so this must NOT match it, or that message silently falls through to Gemini's
+// raw canned escalation line instead of our discount flow.
+function isPureGratitude(text: string): boolean {
+  const cleaned = text.toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!cleaned) return false;
+  const GRATITUDE_WORDS = new Set([
+    'thanks', 'thank', 'you', 'so', 'much', 'a', 'lot', 'very', 'really',
+    'shukriya', 'shukria', 'jazak', 'appreciate', 'appreciated', 'thnx', 'tnx',
+  ]);
+  return cleaned.split(' ').every(w => GRATITUDE_WORDS.has(w));
 }
 
 // Explicit affordability / discount request — always fires, no context needed
 function needsAffordabilityHelp(text: string): boolean {
   const t = text.toLowerCase();
-  if (isGratitude(t)) return false;
+  if (isPureGratitude(t)) return false;
   return (
     /too? (much|expensive|costly|high|pricey)/i.test(t) ||
     /(can.?t|cannot|can not|unable to|hard to|difficult to|struggling to)\s*afford/i.test(t) ||
@@ -123,7 +137,10 @@ function needsAffordabilityHelp(text: string): boolean {
     /\bpersonal discount\b/i.test(t) ||
     /any (other |special |more )?discount/i.test(t) ||
     /out of (my )?budget/i.test(t) ||
-    /\bbudget\b.{0,20}\b(low|tight|less|kam|short)\b/i.test(t)
+    /\bbudget\b.{0,20}\b(low|tight|less|kam|short)\b/i.test(t) ||
+    // Counter-offer / negotiation — "can only pay 4k", "pay 4000 only", "I'll only give 5k"
+    /\bonly\b.{0,20}\b(pay|afford|give|offer|do)\b/i.test(t) ||
+    /\b(pay|afford|give|offer)\b.{0,20}\bonly\b/i.test(t)
   );
 }
 
@@ -131,7 +148,7 @@ function needsAffordabilityHelp(text: string): boolean {
 // Ambiguous on its own — only meaningful right after we quoted the fee.
 function isPriceShockReaction(text: string): boolean {
   const t = text.toLowerCase();
-  if (isGratitude(t)) return false;
+  if (isPureGratitude(t)) return false;
   return (
     /\b(so|too|to|that|that'?s|it'?s|its|bohat|bahut|buhat|boht|bht|kaafi|kafi|itna|itni)\s*(much|expensive|costly|high|pricey|mehnga|mehanga|menga|zyada|ziada|zada)\b/i.test(t) ||
     /\b(expensive|costly|pricey|mehnga|mehanga|menga|unaffordable)\b/i.test(t) ||
@@ -178,7 +195,7 @@ function isBusinessPitch(text: string): boolean {
 // True if the user's own message is about money — required before treating
 // Gemini's redirect reply as a discount escalation
 function isMoneyContext(text: string): boolean {
-  return /\b(fee|fees|price|pricing|cost|charge|payment|discount|afford|budget|scholarship|expensive|costly|money|rupees|rs\.?|paisa|mehnga|zyada)\b/i.test(text);
+  return /\b(fee|fees|price|pricing|cost|charge|payment|pay|discount|afford|budget|scholarship|expensive|costly|money|rupees|rs\.?|paisa|mehnga|zyada)\b/i.test(text);
 }
 
 // User agreeing to have their discount request forwarded to management
@@ -211,6 +228,14 @@ function isConversationalCloser(text: string): boolean {
   return words.every(w => CLOSER_WORDS.has(w));
 }
 
+// True if the message is a plain greeting with no question attached —
+// matches the exact cases CORE_SYSTEM_PROMPT's "Official Initial Greeting" rule covers.
+function isPureGreeting(text: string): boolean {
+  const t = text.trim();
+  if (!t || t.includes('?') || t.length > 40) return false;
+  return /^(hi+|hello+|hey+|salam|assalam[\s-]?o?\s?alaikum|assallamo?\s?allikum|aoa|good\s?(morning|afternoon|evening))\s*(there)?[.!\s]*$/i.test(t);
+}
+
 // True if the message looks like a question the AI should answer
 function isQuestion(text: string): boolean {
   if (text.trim().endsWith('?')) return true;
@@ -233,6 +258,18 @@ function stripEnrollmentNudge(text: string): string {
     // "When you're ready, please send a screenshot..."
     .replace(/\n+When\s+you're\s+ready[^.!?]*?send\s+a\s+screenshot.*/gi, '')
     .trim();
+}
+
+// Backfills the "agent leads" sheet row's Name column the first time we learn a
+// contact's name — the row is written blank at first contact if the name isn't
+// known yet, and would otherwise stay blank forever.
+async function syncLeadNameIfNew(phone: string, priorName: string | null | undefined, newName: string) {
+  if (priorName || !newName) return;
+  try {
+    await updateLeadName(phone, newName);
+  } catch (err) {
+    console.error('Failed to sync lead name to sheet:', err instanceof Error ? err.message : err);
+  }
 }
 
 function withNudgeIfNeeded(aiReply: string, nudge: string, checkRegex: RegExp): string {
@@ -516,6 +553,7 @@ export async function POST(req: NextRequest) {
       const newlyStatedName = msgType === 'text' ? extractExplicitNameFromText(text) : null;
       if (newlyStatedName) {
         await saveContactProfile({ phone: from, name: newlyStatedName, nameAsked: false });
+        await syncLeadNameIfNew(from, contactProfile?.name, newlyStatedName);
       }
 
       const explicitName = newlyStatedName || (contactProfile?.name && looksLikeName(contactProfile.name) ? contactProfile.name : undefined);
@@ -618,13 +656,15 @@ export async function POST(req: NextRequest) {
           } catch (err) {
             console.error('Failed to save discount request:', err instanceof Error ? err.message : err);
           }
-          await saveContactProfile({ phone: from, name: finalName, discountPending: false });
+          await saveContactProfile({ phone: from, name: finalName, discountPending: false, hasSubmittedDiscountRequest: true });
+          await syncLeadNameIfNew(from, contactProfile?.name, finalName);
           discountReply = `✅ Thank you, *${finalName}*! Your request has been forwarded to our management team. They'll reach out to you directly on this WhatsApp number shortly. 😊`;
         } else if (finalEmail && !finalName) {
           await saveContactProfile({ phone: from, discountCollectedEmail: finalEmail });
           discountReply = `Got your email! 😊 Could you also share your *full name*, please?\n\nExample: _John Doe_`;
         } else if (finalName && !finalEmail) {
           await saveContactProfile({ phone: from, name: finalName, discountCollectedName: finalName });
+          await syncLeadNameIfNew(from, contactProfile?.name, finalName);
           discountReply = `Thanks *${finalName}*! 😊 Could you also share your *email address*?\n\nExample: _johndoe@gmail.com_`;
         } else {
           discountReply = `Please share your *full name* and *email address* so we can forward your request to the management team.\n\nExample: _John Doe, johndoe@gmail.com_`;
@@ -662,6 +702,23 @@ export async function POST(req: NextRequest) {
 
       if (shouldCollectDiscount) {
         const existingName = contactProfile?.name && looksLikeName(contactProfile.name) ? contactProfile.name : null;
+
+        // Already have a discount request on file for this contact — this is a follow-up
+        // (e.g. a counter-offer after management responded), not a fresh request. Update
+        // the existing record instead of re-asking for name/email or re-offering to forward.
+        if (contactProfile?.hasSubmittedDiscountRequest) {
+          try {
+            await updateDiscountRequestComment(from, text);
+            await updateDiscountRowComment(from, text);
+          } catch (err) {
+            console.error('Failed to update discount comment:', err instanceof Error ? err.message : err);
+          }
+          const followUpReply = `Got it${existingName ? `, *${existingName}*` : ''}! I've passed along your update to our management team. They'll follow up with you soon. 😊`;
+          await sendWhatsAppMessage(from, followUpReply);
+          await saveMessage({ from, text, reply: followUpReply, timestamp: Date.now() });
+          return;
+        }
+
         const groupDiscountNote = `By the way, we also offer a special *20% group discount* when 2+ students enroll together! 😊\n\n`;
         const greeting = existingName ? `I understand, *${existingName}*!` : `I understand your situation!`;
         const discountReply = `${greeting}\n\n${groupDiscountNote}I can forward your request to our management team — they sometimes offer a special discount based on individual circumstances.\n\nWould you like me to forward this to them? (yes/no)`;
@@ -742,9 +799,29 @@ export async function POST(req: NextRequest) {
         return;
       }
 
+      // ── 4b. First-ever pure greeting → send official welcome + brochure together ──
+      // Bypasses Gemini so the greeting text and the brochure attach are guaranteed
+      // to arrive together, deterministically, on this contact's very first message.
+      if (!hadPriorMessages && isPureGreeting(text)) {
+        let sentDoc = false;
+        try {
+          await sendWhatsAppDocument(from);
+          sentDoc = true;
+        } catch (err) {
+          console.error('Failed to send brochure on first greeting:', err instanceof Error ? err.message : err);
+        }
+        await sendWhatsAppMessage(from, WELCOME_GREETING);
+        await saveMessage({
+          from, text, reply: WELCOME_GREETING, timestamp: Date.now(),
+          ...(sentDoc ? { mediaType: 'document' as const } : {}),
+        });
+        return;
+      }
+
       // ── 5. Normal Gemini flow ─────────────────────────────────────────────
       if (contactProfile?.nameAsked && !contactProfile?.name && looksLikeName(text)) {
         await saveContactProfile({ phone: from, name: text.trim(), nameAsked: false });
+        await syncLeadNameIfNew(from, contactProfile?.name, text.trim());
       }
 
       // ── 5a3. Conversational closer ("thanks", "ok", "no more questions") ──
@@ -792,6 +869,21 @@ export async function POST(req: NextRequest) {
 
       if (isEscalation) {
         const existingName = contactProfile?.name && looksLikeName(contactProfile.name) ? contactProfile.name : null;
+
+        if (contactProfile?.hasSubmittedDiscountRequest) {
+          // Already have a discount request on file — treat this as a follow-up comment
+          try {
+            await updateDiscountRequestComment(from, text);
+            await updateDiscountRowComment(from, text);
+          } catch (err) {
+            console.error('Failed to update discount comment:', err instanceof Error ? err.message : err);
+          }
+          reply = `Got it${existingName ? `, *${existingName}*` : ''}! I've passed along your update to our management team. They'll follow up with you soon. 😊`;
+          await sendWhatsAppMessage(from, reply);
+          await saveMessage({ from, text, reply, timestamp: Date.now() });
+          return;
+        }
+
         const greeting = existingName ? `I understand, *${existingName}*!` : `I understand your situation!`;
         reply = `${greeting} 😊 I can forward your request to our management team — they sometimes offer a special discount based on individual circumstances.\n\nWould you like me to forward this to them? (yes/no)`;
         await saveContactProfile({
