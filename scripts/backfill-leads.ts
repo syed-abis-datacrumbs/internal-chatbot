@@ -27,7 +27,12 @@ async function main() {
   const leads = await getLeads();
   console.log(`Found ${leads.length} existing leads. Appending to the "agent leads" sheet tab...`);
 
-  await appendLeadRows(leads.map(l => ({
+  // getLeads() is sorted by lastContact (most recently active), but each row's
+  // displayed Date/Time is firstContact — sort by that instead so appended rows
+  // land in chronological order matching what they display.
+  const chronological = [...leads].sort((a, b) => a.firstContact - b.firstContact);
+
+  await appendLeadRows(chronological.map(l => ({
     name: l.name ?? null,
     phone: l.phone,
     timestamp: l.firstContact,

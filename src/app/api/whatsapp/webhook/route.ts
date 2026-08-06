@@ -6,7 +6,7 @@ import {
   downloadWhatsAppMedia,
 } from '@/lib/whatsapp';
 import { getAIReply } from '@/lib/gemini';
-import { CORE_SYSTEM_PROMPT } from '@/lib/knowledge';
+import { CORE_SYSTEM_PROMPT, WELCOME_GREETING } from '@/lib/knowledge';
 import {
   saveMessage, getRecentMessagesByPhone, hasPriorMessages,
   getActiveEnrollmentSession, saveEnrollmentSession,
@@ -539,7 +539,9 @@ export async function POST(req: NextRequest) {
 
       // ── 0b. Brochure shortcut — checked before enrollment so ALL users get the PDF ──
       if (msgType === 'text' && wantsBrochure(text)) {
-        const reply = 'Here is our complete Data Science & AI Bootcamp brochure! It covers the full curriculum, pricing, internship details, and instructor profiles. Let me know if you have any questions 😊';
+        const brochureBlurb = 'Here is our complete Data Science & AI Bootcamp brochure! It covers the full curriculum, pricing, internship details, and instructor profiles. Let me know if you have any questions 😊';
+        // First-ever message from this contact — lead with the official intro, not just the PDF
+        const reply = hadPriorMessages ? brochureBlurb : `${WELCOME_GREETING}\n\n${brochureBlurb}`;
         let sentDoc = false;
         try {
           await sendWhatsAppDocument(from);
