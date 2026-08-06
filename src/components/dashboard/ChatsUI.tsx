@@ -233,7 +233,7 @@ export default function ChatsUI({ contacts: initial, total }: { contacts: Contac
                       fontSize: 11.5, color: '#6b7280', marginTop: 2,
                       whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                     }}>
-                      {c.lastMessage.text === '[image]' ? '📷 Photo' : (c.lastMessage.text || c.lastMessage.reply)}
+                      {c.lastMessage.text === '[image]' ? '📷 Photo' : (c.lastMessage.reply || c.lastMessage.text)}
                     </div>
                   </div>
                 </button>
