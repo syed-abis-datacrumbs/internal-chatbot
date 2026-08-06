@@ -273,6 +273,20 @@ async function syncLeadNameIfNew(phone: string, priorName: string | null | undef
   }
 }
 
+// Every first-ever message from a brand-new contact gets the brochure attached,
+// regardless of content — greeting, question, whatever. This is the one chance
+// to hand over the full info packet before they've seen anything else from us.
+async function attachBrochureIfFirstContact(hadPriorMessages: boolean, from: string): Promise<boolean> {
+  if (hadPriorMessages) return false;
+  try {
+    await sendWhatsAppDocument(from);
+    return true;
+  } catch (err) {
+    console.error('Failed to send brochure on first contact:', err instanceof Error ? err.message : err);
+    return false;
+  }
+}
+
 function withNudgeIfNeeded(aiReply: string, nudge: string, checkRegex: RegExp): string {
   if (checkRegex.test(aiReply)) {
     return aiReply;
@@ -729,8 +743,12 @@ export async function POST(req: NextRequest) {
           discountOriginalMessage: text,
           ...(existingName ? { discountCollectedName: existingName } : {}),
         });
+        const sentDoc = await attachBrochureIfFirstContact(hadPriorMessages, from);
         await sendWhatsAppMessage(from, discountReply);
-        await saveMessage({ from, text, reply: discountReply, timestamp: Date.now() });
+        await saveMessage({
+          from, text, reply: discountReply, timestamp: Date.now(),
+          ...(sentDoc ? { mediaType: 'document' as const } : {}),
+        });
         return;
       }
 
@@ -769,6 +787,7 @@ export async function POST(req: NextRequest) {
               console.error('Drive upload failed (non-enrollment):', err instanceof Error ? err.message : err);
             }
           }
+          await attachBrochureIfFirstContact(hadPriorMessages, from);
           const imgReply = 'Please type your question in text 😊';
           await sendWhatsAppMessage(from, imgReply);
           await saveMessage({
@@ -795,8 +814,12 @@ export async function POST(req: NextRequest) {
         };
         const reply = `Great! I'll get you enrolled in the *4-Month AI & Data Science Bootcamp* 🎓\n\nPlease share your *full name* and *email address* together so we can get started!\n\nExample: _John Doe, johndoe@gmail.com_`;
         await saveEnrollmentSession(newSession);
+        const sentDoc = await attachBrochureIfFirstContact(hadPriorMessages, from);
         await sendWhatsAppMessage(from, reply);
-        await saveMessage({ from, text, reply, timestamp: Date.now() });
+        await saveMessage({
+          from, text, reply, timestamp: Date.now(),
+          ...(sentDoc ? { mediaType: 'document' as const } : {}),
+        });
         return;
       }
 
@@ -847,20 +870,10 @@ export async function POST(req: NextRequest) {
 
       let reply = await getAIReply(text, history);
 
-      // Fallback for greeting phrasings isPureGreeting's regex doesn't catch (e.g. "Asalam-o-Alaikum",
-      // "Hi there, how are you") — if Gemini's own judgment still produced the official welcome
-      // block on this contact's first-ever message, attach the brochure here too, since the
-      // pre-Gemini 4b shortcut above never fired for it.
-      let sentDocWithReply = false;
-      const looksLikeWelcomeBlock = reply.includes("I'm Zoya from DataCrumbs") && reply.includes('4-Month AI & Data Science Bootcamp');
-      if (!hadPriorMessages && looksLikeWelcomeBlock) {
-        try {
-          await sendWhatsAppDocument(from);
-          sentDocWithReply = true;
-        } catch (err) {
-          console.error('Failed to send brochure alongside Gemini welcome reply:', err instanceof Error ? err.message : err);
-        }
-      }
+      // Every first-ever message gets the brochure, whatever it says — greeting,
+      // direct question, anything. Catches any first message that reaches this
+      // normal-flow path (didn't match the pure-greeting or brochure-keyword shortcuts).
+      const sentDocWithReply = await attachBrochureIfFirstContact(hadPriorMessages, from);
 
       if (contactProfile?.lastReplyWasClosing) {
         await saveContactProfile({ phone: from, lastReplyWasClosing: false });
