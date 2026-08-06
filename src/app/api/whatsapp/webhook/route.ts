@@ -54,9 +54,12 @@ const EMAIL_RE = /[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+/;
 // Strip common preamble phrases so "My name is John" → "John"
 function cleanName(raw: string): string {
   return raw
-    .replace(/\b(my name is|i am|i'm|name is|call me|and email is|email is|email:)\b/gi, '')
+    .replace(/\b(my name is|i am|i'm|name is|call me|and my email is|and email is|my email is|email address is|email id is|email is|email:)\b/gi, '')
     .replace(/@\S*/g, '')   // remove stray @fragments
     .replace(EMAIL_RE, '')  // remove any leftover email fragment
+    // Strip leftover connector/filler words phrase-stripping can leave dangling
+    // (e.g. "and my" from "...and my email is..." when only "email is" matched)
+    .replace(/\b(and|my|is|the|also|email|address|mail|id)\b/gi, '')
     .replace(/[,;|]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
