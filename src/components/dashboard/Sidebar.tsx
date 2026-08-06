@@ -1,13 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 
 const NEON = '#5ce46d';
 
-const NAV = [
+type CountKey = 'chats' | 'leads' | 'enrollments';
+
+const NAV: { href: string; label: string; countKey?: CountKey; icon: React.ReactNode }[] = [
   {
     href: '/overview',
     label: 'Overview',
@@ -20,6 +22,7 @@ const NAV = [
   {
     href: '/chats',
     label: 'Chats',
+    countKey: 'chats',
     icon: (
       <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
@@ -29,6 +32,7 @@ const NAV = [
   {
     href: '/leads',
     label: 'Leads',
+    countKey: 'leads',
     icon: (
       <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
@@ -38,6 +42,7 @@ const NAV = [
   {
     href: '/enrollments',
     label: 'Enrollments',
+    countKey: 'enrollments',
     icon: (
       <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
@@ -68,6 +73,21 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [hovered, setHovered] = useState<string | null>(null);
   const [logoutHov, setLogoutHov] = useState(false);
+  const [counts, setCounts] = useState<Record<CountKey, number> | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchCounts = async () => {
+      try {
+        const res  = await fetch('/api/stats/nav-counts');
+        const data = await res.json();
+        if (!cancelled) setCounts(data);
+      } catch { /* ignore — badges just stay hidden */ }
+    };
+    fetchCounts();
+    const poll = setInterval(fetchCounts, 15000);
+    return () => { cancelled = true; clearInterval(poll); };
+  }, []);
 
   async function logout() {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -120,9 +140,21 @@ export default function Sidebar() {
                   <span style={{ color: active ? NEON : 'inherit', display: 'flex', flexShrink: 0 }}>
                     {item.icon}
                   </span>
-                  <span style={{ fontSize: 14, fontWeight: active ? 500 : 400 }}>
+                  <span style={{ fontSize: 14, fontWeight: active ? 500 : 400, flex: 1 }}>
                     {item.label}
                   </span>
+                  {item.countKey && counts != null && (
+                    <span style={{
+                      fontSize: 11, fontWeight: 600,
+                      color: active ? NEON : '#6b7280',
+                      background: active ? 'rgba(92,228,109,0.12)' : 'rgba(255,255,255,0.05)',
+                      border: `1px solid ${active ? 'rgba(92,228,109,0.3)' : '#202d26'}`,
+                      borderRadius: 20, padding: '1px 8px',
+                      flexShrink: 0,
+                    }}>
+                      {counts[item.countKey]}
+                    </span>
+                  )}
                 </div>
               </Link>
             );

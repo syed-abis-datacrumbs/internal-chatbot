@@ -1,9 +1,11 @@
 import { google } from 'googleapis';
 import { Readable } from 'stream';
 
-const DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID!;
-const SHEET_ID        = process.env.GOOGLE_SHEET_ID!;
-const SHEET_TAB       = process.env.GOOGLE_SHEET_TAB ?? 'Payment info bot';
+const DRIVE_FOLDER_ID   = process.env.GOOGLE_DRIVE_FOLDER_ID!;
+const SHEET_ID          = process.env.GOOGLE_SHEET_ID!;
+const SHEET_TAB         = process.env.GOOGLE_SHEET_TAB ?? 'Payment info bot';
+const DISCOUNT_TAB      = process.env.GOOGLE_SHEET_TAB_DISCOUNT ?? 'Discount';
+const LEADS_TAB         = process.env.GOOGLE_SHEET_TAB_LEADS ?? 'agent leads';
 
 function auth() {
   return new google.auth.JWT({
@@ -130,7 +132,7 @@ export async function appendDiscountRow(data: {
   timestamp: number;
 }): Promise<void> {
   const sheets = google.sheets({ version: 'v4', auth: auth() });
-  const tab    = 'Discount';
+  const tab    = DISCOUNT_TAB;
 
   // Ensure headers exist
   const res = await sheets.spreadsheets.values.get({
@@ -163,8 +165,6 @@ export async function appendDiscountRow(data: {
 }
 
 // ── Leads ──────────────────────────────────────────────────────────────────
-
-const LEADS_TAB = 'agent leads';
 
 function formatLeadRow(name: string | null, phone: string, timestamp: number): string[] {
   const dateStr = new Date(timestamp).toLocaleDateString('en-PK', {

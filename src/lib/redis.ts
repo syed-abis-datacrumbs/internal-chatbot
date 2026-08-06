@@ -92,6 +92,18 @@ export async function deleteMessagesByPhone(phone: string): Promise<number> {
   return result.deletedCount;
 }
 
+export interface NavCounts { chats: number; leads: number; enrollments: number }
+
+export async function getNavCounts(): Promise<NavCounts> {
+  const db = await getDb();
+  const [phones, enrollments] = await Promise.all([
+    db.collection('wa_messages').distinct('from'),
+    db.collection('enrollment_sessions').countDocuments(),
+  ]);
+  // Chats and Leads currently derive from the same distinct-contact set
+  return { chats: phones.length, leads: phones.length, enrollments };
+}
+
 export async function hasPriorMessages(phone: string): Promise<boolean> {
   const db  = await getDb();
   const doc = await db.collection('wa_messages').findOne({ from: phone }, { projection: { _id: 1 } });
