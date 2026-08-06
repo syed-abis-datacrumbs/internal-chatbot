@@ -69,8 +69,10 @@ function looksLikeName(text: string): boolean {
   if (/[0-9?!@#$%^&*()_+={}\[\]:;<>\\\/]/g.test(t)) return false;
   const words = t.split(/\s+/);
   if (words.length > 4) return false;
+  // Real names never start with an article/pronoun/negation ("a student", "the sender", "not sure")
+  if (/^(a|an|the|not|no|so|very|really|just|still)\b/i.test(t)) return false;
 
-  const NON_NAME_WORDS = /\b(tell|something|related|internship|course|bootcamp|fee|price|cost|timing|class|classes|recording|missed|register|enroll|payment|pay|bank|easypaisa|jazzcash|nayapay|account|iban|screenshot|receipt|hi|hello|hey|salam|aoa|okay|ok|yes|no|thanks|thank|what|how|when|where|why|is|are|can|could|would|please|about|kya|kab|kaisa|bata|mujhe|aur|aap)\b/i;
+  const NON_NAME_WORDS = /\b(tell|something|related|internship|course|bootcamp|fee|price|cost|timing|class|classes|recording|missed|register|enroll|payment|pay|bank|easypaisa|jazzcash|nayapay|account|iban|screenshot|receipt|hi|hello|hey|salam|aoa|okay|ok|yes|no|thanks|thank|what|how|when|where|why|is|are|can|could|would|please|about|kya|kab|kaisa|bata|mujhe|aur|aap|student|beginner|learner|teacher|professional|engineer|freelancer|developer|programmer|newbie|fresher|graduate|undergraduate|guy|man|boy|girl|person|worker|employee|kid|adult|parent|teenager|discount|afford|budget|scholarship|expensive|struggling|confused|sender|forward)\b/i;
   return !NON_NAME_WORDS.test(t);
 }
 
