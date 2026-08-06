@@ -66,6 +66,18 @@ export async function saveContactProfile(data: Partial<ContactProfile> & { phone
   );
 }
 
+export async function deleteAllMessages(): Promise<number> {
+  const db = await getDb();
+  const result = await db.collection('wa_messages').deleteMany({});
+  return result.deletedCount;
+}
+
+export async function deleteMessagesByPhone(phone: string): Promise<number> {
+  const db = await getDb();
+  const result = await db.collection('wa_messages').deleteMany({ from: phone });
+  return result.deletedCount;
+}
+
 export async function getRecentMessagesByPhone(phone: string, limit = 10): Promise<ChatMessage[]> {
   const db = await getDb();
   const docs = await db

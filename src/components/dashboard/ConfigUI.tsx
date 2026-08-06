@@ -37,6 +37,8 @@ export default function ConfigUI({
   const [saving,      setSaving]      = useState(false);
   const [saved,       setSaved]       = useState(false);
   const [uploading,   setUploading]   = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
+  const [confirmAll,  setConfirmAll]  = useState(false);
   const [uploadedName, setUploadedName] = useState<string | null>(currentBrochure?.filename ?? null);
   const [uploadedAt,  setUploadedAt]  = useState<number | null>(currentBrochure?.uploadedAt ?? null);
   const [uploadError, setUploadError] = useState('');
@@ -283,6 +285,71 @@ export default function ConfigUI({
               )}
             </div>
 
+          </div>
+
+          {/* Danger zone */}
+          <div style={{
+            marginTop: 24,
+            background: 'rgba(220,38,38,0.05)',
+            border: '1px solid rgba(220,38,38,0.2)',
+            borderRadius: 16, padding: 28,
+          }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#f87171', marginBottom: 4 }}>Danger Zone</div>
+            <div style={{ fontSize: 12.5, color: '#9ca3af', marginBottom: 18 }}>
+              These actions are permanent and cannot be undone.
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              {!confirmAll ? (
+                <button
+                  onClick={() => setConfirmAll(true)}
+                  style={{
+                    padding: '9px 22px', borderRadius: 8,
+                    border: '1.5px solid rgba(220,38,38,0.5)',
+                    background: 'transparent', color: '#f87171',
+                    fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  🗑 Delete All Chats
+                </button>
+              ) : (
+                <>
+                  <span style={{ fontSize: 13, color: '#fca5a5' }}>Are you sure? This deletes every conversation.</span>
+                  <button
+                    onClick={async () => {
+                      setDeletingAll(true);
+                      try {
+                        await fetch('/api/messages', { method: 'DELETE' });
+                        setConfirmAll(false);
+                        window.location.reload();
+                      } finally {
+                        setDeletingAll(false);
+                      }
+                    }}
+                    disabled={deletingAll}
+                    style={{
+                      padding: '8px 18px', borderRadius: 8, border: 'none',
+                      background: '#dc2626', color: '#fff',
+                      fontWeight: 700, fontSize: 13, cursor: deletingAll ? 'not-allowed' : 'pointer',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    {deletingAll ? 'Deleting…' : 'Yes, Delete All'}
+                  </button>
+                  <button
+                    onClick={() => setConfirmAll(false)}
+                    style={{
+                      padding: '8px 14px', borderRadius: 8,
+                      border: `1px solid ${BORDER}`,
+                      background: 'transparent', color: '#9ca3af',
+                      fontWeight: 500, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>

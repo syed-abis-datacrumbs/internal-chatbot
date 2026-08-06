@@ -61,6 +61,7 @@ export default function ChatsUI({ contacts: initial, total }: { contacts: Contac
   const [hov,         setHov]         = useState<string | null>(null);
   const [botDisabled, setBotDisabled] = useState<boolean>(false);
   const [toggling,    setToggling]    = useState(false);
+  const [deleting,    setDeleting]    = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLInputElement>(null);
 
@@ -104,6 +105,19 @@ export default function ChatsUI({ contacts: initial, total }: { contacts: Contac
       setBotDisabled(data.disabled);
     } finally {
       setToggling(false);
+    }
+  }
+
+  async function deleteChat(phone: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (deleting) return;
+    setDeleting(phone);
+    try {
+      await fetch(`/api/messages/${encodeURIComponent(phone)}`, { method: 'DELETE' });
+      setContacts(prev => prev.filter(c => c.phone !== phone));
+      if (selected === phone) setSelected(null);
+    } finally {
+      setDeleting(null);
     }
   }
 
@@ -157,50 +171,76 @@ export default function ChatsUI({ contacts: initial, total }: { contacts: Contac
             const isHovered  = hov === c.phone;
             const h          = hueFromPhone(c.phone);
             return (
-              <button
+              <div
                 key={c.phone}
-                onClick={() => setSelected(c.phone)}
                 onMouseEnter={() => setHov(c.phone)}
                 onMouseLeave={() => setHov(null)}
-                style={{
-                  width: '100%', textAlign: 'left', border: 'none', cursor: 'pointer',
-                  padding: '12px 14px',
-                  background: isActive
-                    ? 'linear-gradient(to right, #1a3020, #0e1f14)'
-                    : isHovered ? '#121a16' : 'transparent',
-                  borderLeft: `3px solid ${isActive ? NEON : 'transparent'}`,
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  borderBottom: `1px solid ${BORDER}`,
-                  transition: 'all 0.15s',
-                  boxSizing: 'border-box',
-                }}
+                style={{ position: 'relative', borderBottom: `1px solid ${BORDER}` }}
               >
-                <div style={{
-                  width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
-                  background: `hsla(${h},45%,18%,1)`,
-                  border: `1.5px solid hsla(${h},45%,30%,1)`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 12, fontWeight: 700, color: `hsla(${h},60%,70%,1)`,
-                }}>
-                  {phoneInitials(c.phone)}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                    <span style={{ fontWeight: 600, fontSize: 12.5, color: isActive ? '#fff' : '#d1d5db' }}>
-                      +{c.phone}
-                    </span>
-                    <span style={{ fontSize: 10, color: '#6b7280', flexShrink: 0, marginLeft: 4 }}>
-                      {formatTime(c.lastMessage.timestamp)}
-                    </span>
-                  </div>
+                <button
+                  onClick={() => setSelected(c.phone)}
+                  style={{
+                    width: '100%', textAlign: 'left', border: 'none', cursor: 'pointer',
+                    padding: '12px 14px',
+                    background: isActive
+                      ? 'linear-gradient(to right, #1a3020, #0e1f14)'
+                      : isHovered ? '#121a16' : 'transparent',
+                    borderLeft: `3px solid ${isActive ? NEON : 'transparent'}`,
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    transition: 'all 0.15s',
+                    boxSizing: 'border-box',
+                    paddingRight: isHovered ? 44 : 14,
+                  }}
+                >
                   <div style={{
-                    fontSize: 11.5, color: '#6b7280', marginTop: 2,
-                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                    width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
+                    background: `hsla(${h},45%,18%,1)`,
+                    border: `1.5px solid hsla(${h},45%,30%,1)`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 12, fontWeight: 700, color: `hsla(${h},60%,70%,1)`,
                   }}>
-                    {c.lastMessage.text === '[image]' ? '📷 Photo' : (c.lastMessage.text || c.lastMessage.reply)}
+                    {phoneInitials(c.phone)}
                   </div>
-                </div>
-              </button>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                      <span style={{ fontWeight: 600, fontSize: 12.5, color: isActive ? '#fff' : '#d1d5db' }}>
+                        +{c.phone}
+                      </span>
+                      <span style={{ fontSize: 10, color: '#6b7280', flexShrink: 0, marginLeft: 4 }}>
+                        {formatTime(c.lastMessage.timestamp)}
+                      </span>
+                    </div>
+                    <div style={{
+                      fontSize: 11.5, color: '#6b7280', marginTop: 2,
+                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                    }}>
+                      {c.lastMessage.text === '[image]' ? '📷 Photo' : (c.lastMessage.text || c.lastMessage.reply)}
+                    </div>
+                  </div>
+                </button>
+                {isHovered && (
+                  <button
+                    onClick={(e) => deleteChat(c.phone, e)}
+                    disabled={deleting === c.phone}
+                    title="Delete this chat"
+                    style={{
+                      position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                      width: 28, height: 28, borderRadius: 6, border: 'none',
+                      background: 'rgba(220,38,38,0.12)',
+                      color: deleting === c.phone ? '#6b7280' : '#f87171',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      cursor: deleting === c.phone ? 'not-allowed' : 'pointer',
+                      transition: 'all 0.15s',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                )}
+              </div>
             );
           })}
         </div>
