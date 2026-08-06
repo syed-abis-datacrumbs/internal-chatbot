@@ -345,8 +345,8 @@ async function runEnrollmentMachine(
     }
 
     case 'approved': {
-      // Upload any image sent so it appears as a thumbnail in the dashboard
       if ((msgType === 'image' || msgType === 'document') && imageId) {
+        // Upload for dashboard display only — image doesn't mean anything enrollment-wise here
         try {
           const { buffer, mimeType } = await downloadWhatsAppMedia(imageId);
           const { fileId } = await uploadScreenshotToDrive(buffer, mimeType, from, Date.now());
@@ -354,11 +354,11 @@ async function runEnrollmentMachine(
         } catch (err) {
           console.error('Drive upload failed (approved):', err instanceof Error ? err.message : err);
         }
-      }
-      if (msgType === 'text' && text.trim()) {
+        reply = `Please type your question in text 😊`;
+      } else if (msgType === 'text' && text.trim()) {
         reply = await getAIReply(text, history, CORE_SYSTEM_PROMPT);
       } else {
-        reply = `You're enrolled in DataCrumbs! Welcome 🎓 If you have any questions, feel free to ask.`;
+        reply = `Please type your question in text 😊`;
       }
       break;
     }
@@ -465,8 +465,10 @@ export async function POST(req: NextRequest) {
               console.error('Drive upload failed (non-enrollment):', err instanceof Error ? err.message : err);
             }
           }
+          const imgReply = 'Please type your question in text 😊';
+          await sendWhatsAppMessage(from, imgReply);
           await saveMessage({
-            from, text: '[image]', reply: '', timestamp: Date.now(),
+            from, text: '[image]', reply: imgReply, timestamp: Date.now(),
             mediaType: 'image',
             ...(mediaUrl ? { mediaUrl } : {}),
           });
