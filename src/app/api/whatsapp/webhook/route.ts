@@ -93,24 +93,47 @@ function extractExplicitNameFromText(text: string): string | null {
   return null;
 }
 
-// True if the user is signalling they can't afford / asking for personal financial help
+// Gratitude — "thanks so much" must never be mistaken for a price complaint
+function isGratitude(text: string): boolean {
+  return /\b(thanks|thank\s?you|thankyou|thnx|tnx|shukriya|shukria|jazak|appreciate)\b/i.test(text);
+}
+
+// Explicit affordability / discount request — always fires, no context needed
 function needsAffordabilityHelp(text: string): boolean {
   const t = text.toLowerCase();
+  if (isGratitude(t)) return false;
   return (
-    /too? (much|expensive)/i.test(t) ||
-    /can.?t afford/i.test(t) ||
-    /\bafford\b/i.test(t) ||
+    /too? (much|expensive|costly|high|pricey)/i.test(t) ||
+    /(can.?t|cannot|can not|unable to|hard to|difficult to|struggling to)\s*afford/i.test(t) ||
+    (/\bafford\b/i.test(t) && !/\b(can|could|will|able to)\s+afford\b/i.test(t)) ||
     /not affordable/i.test(t) ||
     /\bscholarship\b/i.test(t) ||
-    /financial (help|support|issue|problem|hardship)/i.test(t) ||
-    /\bfee (bari|zyada|kam|reduce)\b/i.test(t) ||
+    /financial (help|support|issue|problem|hardship|constraint)/i.test(t) ||
+    /\bfee (bari|barhi|zyada|ziada|kam|reduce)\b/i.test(t) ||
     /\bkoi discount\b/i.test(t) ||
-    /discount (chahiye|dena|do|mil)/i.test(t) ||
+    /discount (chahiye|dena|do|mil|de)/i.test(t) ||
     /i (want|need|require|wanna) (a |some )?discount/i.test(t) ||
     /give.{0,10}discount/i.test(t) ||
-    /\bstudent (discount|rate|concession|deal)\b/i.test(t) ||
+    /\bstudent (discount|rate|concession|deal|package)\b/i.test(t) ||
     /\bpersonal discount\b/i.test(t) ||
-    /any (other |special )?discount/i.test(t)
+    /any (other |special |more )?discount/i.test(t) ||
+    /out of (my )?budget/i.test(t) ||
+    /\bbudget\b.{0,20}\b(low|tight|less|kam|short)\b/i.test(t)
+  );
+}
+
+// Vague sticker-shock reaction ("that's so much", "expensive", "mehnga").
+// Ambiguous on its own — only meaningful right after we quoted the fee.
+function isPriceShockReaction(text: string): boolean {
+  const t = text.toLowerCase();
+  if (isGratitude(t)) return false;
+  return (
+    /\b(so|too|to|that|that'?s|it'?s|its|bohat|bahut|buhat|boht|bht|kaafi|kafi|itna|itni)\s*(much|expensive|costly|high|pricey|mehnga|mehanga|menga|zyada|ziada|zada)\b/i.test(t) ||
+    /\b(expensive|costly|pricey|mehnga|mehanga|menga|unaffordable)\b/i.test(t) ||
+    /\bthat'?s? (a lot|alot)\b/i.test(t) ||
+    /\b(a lot|alot) of money\b/i.test(t) ||
+    /\b(high|heavy|big)\s*fee\b/i.test(t) ||
+    /\bfee\b.{0,15}\b(high|much|zyada|ziada|bari|barhi)\b/i.test(t)
   );
 }
 
@@ -566,11 +589,19 @@ export async function POST(req: NextRequest) {
       }
 
       // ── 5b. Discount collection trigger ──────────────────────────────────
-      // Fire if: (a) user has explicit affordability signal, OR
-      //          (b) group discount was already explained AND they're STILL asking about discount
+      // Fires when: (a) explicit affordability/discount request, OR
+      //             (b) vague sticker-shock reaction right after we quoted the fee, OR
+      //             (c) group discount already explained AND they're STILL asking about discount
+      const lastTwoReplies = recentMsgs.slice(-2).map(m => m.reply || '').join(' ');
+      const feeJustQuoted  = /7,?499|7499|per month|\/month|\bfee\b|\bprice\b/i.test(lastTwoReplies);
+
       const groupDiscountExplained = recentMsgs.some(m => m.reply && m.reply.includes('20%'));
       const stillAskingDiscount    = /\bdiscount\b/i.test(text);
-      const shouldCollectDiscount  = needsAffordabilityHelp(text) || (groupDiscountExplained && stillAskingDiscount);
+
+      const shouldCollectDiscount =
+        needsAffordabilityHelp(text) ||
+        (feeJustQuoted && isPriceShockReaction(text)) ||
+        (groupDiscountExplained && stillAskingDiscount);
 
       if (shouldCollectDiscount) {
         const existingName = contactProfile?.name && looksLikeName(contactProfile.name) ? contactProfile.name : null;
