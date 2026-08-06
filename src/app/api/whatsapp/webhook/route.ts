@@ -178,6 +178,19 @@ function isMoneyContext(text: string): boolean {
   return /\b(fee|fees|price|pricing|cost|charge|payment|discount|afford|budget|scholarship|expensive|costly|money|rupees|rs\.?|paisa|mehnga|zyada)\b/i.test(text);
 }
 
+// User agreeing to have their discount request forwarded to management
+function isAffirmative(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  return /^(yes|yeah|yep|yup|sure|ok|okay|k|please|go ahead|do it|forward it|forward|send it|alright|fine|why not|haan|han|ji|ji haan|ji han|zaroor|bilkul|theek hai|thik hai|kar do|karo)\b/i.test(t);
+}
+
+// User declining the discount forward offer
+function isNegative(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  return /^(no|nah|nope|not now|never\s?mind|leave it|nahi|nai|chodo|rehnay do|rehne do)\b/i.test(t)
+    || /\b(no thanks|not interested|don'?t bother)\b/i.test(t);
+}
+
 // True if the message looks like a question the AI should answer
 function isQuestion(text: string): boolean {
   if (text.trim().endsWith('?')) return true;
@@ -512,6 +525,41 @@ export async function POST(req: NextRequest) {
       // Conversation context — fetched once and reused by every branch below
       const recentMsgs = msgType === 'text' ? await getRecentMessagesByPhone(from, 10) : [];
 
+      // ── 0b2. Discount offer confirmation ─────────────────────────────────
+      // We've asked "should I forward this to management?" — wait for a clear
+      // yes/no before ever asking for name/email. Anything ambiguous (like a
+      // question) gets a short answer and the offer repeated, not a name/email demand.
+      if (msgType === 'text' && contactProfile?.discountOfferPending) {
+        const existingName = contactProfile.discountCollectedName
+          || (contactProfile.name && looksLikeName(contactProfile.name) ? contactProfile.name : null);
+
+        let offerReply: string;
+
+        if (isAffirmative(text)) {
+          if (existingName) {
+            offerReply = `Great, *${existingName}*! 🙌 Please share your *email address* so I can forward this to our management team.\n\nExample: _johndoe@gmail.com_`;
+          } else {
+            offerReply = `Great! 🙌 Please share your *full name* and *email address* so I can forward this to our management team.\n\nExample: _John Doe, johndoe@gmail.com_`;
+          }
+          await saveContactProfile({
+            phone: from,
+            discountOfferPending: false,
+            discountPending: true,
+            ...(existingName ? { discountCollectedName: existingName } : {}),
+          });
+        } else if (isNegative(text)) {
+          offerReply = `No problem at all! 😊 Feel free to ask me anything else — curriculum, schedule, or enrollment.`;
+          await saveContactProfile({ phone: from, discountOfferPending: false });
+        } else {
+          // Ambiguous / a question — answer briefly, then repeat the offer (never demand contact info here)
+          offerReply = `Our management reviews each request individually and may be able to offer you a special discount. 😊\n\nWould you like me to forward your request to them? (yes/no)`;
+        }
+
+        await sendWhatsAppMessage(from, offerReply);
+        await saveMessage({ from, text, reply: offerReply, timestamp: Date.now() });
+        return;
+      }
+
       // ── 0c. Discount collection state ────────────────────────────────────
       // Runs BEFORE the enrollment-session branch so it applies to every user,
       // including those with an existing (e.g. approved) enrollment session.
@@ -582,15 +630,15 @@ export async function POST(req: NextRequest) {
 
       if (shouldCollectDiscount) {
         const existingName = contactProfile?.name && looksLikeName(contactProfile.name) ? contactProfile.name : null;
-        let discountReply: string;
         const groupDiscountNote = `By the way, we also offer a special *20% group discount* when 2+ students enroll together! 😊\n\n`;
-        if (existingName) {
-          discountReply = `I completely understand, *${existingName}*!\n\n${groupDiscountNote}To forward your request to our management team, please share your *email address*.\n\nExample: _johndoe@gmail.com_`;
-          await saveContactProfile({ phone: from, discountPending: true, discountOriginalMessage: text, discountCollectedName: existingName });
-        } else {
-          discountReply = `I completely understand your situation!\n\n${groupDiscountNote}To forward your request to our management team, please share your *full name* and *email address*.\n\nExample: _John Doe, johndoe@gmail.com_`;
-          await saveContactProfile({ phone: from, discountPending: true, discountOriginalMessage: text });
-        }
+        const greeting = existingName ? `I understand, *${existingName}*!` : `I understand your situation!`;
+        const discountReply = `${greeting}\n\n${groupDiscountNote}I can forward your request to our management team — they sometimes offer a special discount based on individual circumstances.\n\nWould you like me to forward this to them? (yes/no)`;
+        await saveContactProfile({
+          phone: from,
+          discountOfferPending: true,
+          discountOriginalMessage: text,
+          ...(existingName ? { discountCollectedName: existingName } : {}),
+        });
         await sendWhatsAppMessage(from, discountReply);
         await saveMessage({ from, text, reply: discountReply, timestamp: Date.now() });
         return;
@@ -693,13 +741,14 @@ export async function POST(req: NextRequest) {
 
       if (isEscalation) {
         const existingName = contactProfile?.name && looksLikeName(contactProfile.name) ? contactProfile.name : null;
-        if (existingName) {
-          reply = `I completely understand, *${existingName}*! 😊 To forward your request to our management team, please share your *email address*.\n\nExample: _johndoe@gmail.com_`;
-          await saveContactProfile({ phone: from, discountPending: true, discountOriginalMessage: text, discountCollectedName: existingName });
-        } else {
-          reply = `I completely understand your situation! 😊 To forward your request to our management team, please share your *full name* and *email address*.\n\nExample: _John Doe, johndoe@gmail.com_`;
-          await saveContactProfile({ phone: from, discountPending: true, discountOriginalMessage: text });
-        }
+        const greeting = existingName ? `I understand, *${existingName}*!` : `I understand your situation!`;
+        reply = `${greeting} 😊 I can forward your request to our management team — they sometimes offer a special discount based on individual circumstances.\n\nWould you like me to forward this to them? (yes/no)`;
+        await saveContactProfile({
+          phone: from,
+          discountOfferPending: true,
+          discountOriginalMessage: text,
+          ...(existingName ? { discountCollectedName: existingName } : {}),
+        });
       }
 
       await sendWhatsAppMessage(from, reply);

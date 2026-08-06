@@ -50,7 +50,8 @@ export interface ContactProfile {
   botDisabled: boolean;
   updatedAt: number;
   // Discount collection state
-  discountPending?: boolean;
+  discountOfferPending?: boolean; // waiting for yes/no on "should we forward this?"
+  discountPending?: boolean;      // confirmed — now collecting name/email
   discountOriginalMessage?: string;
   discountCollectedName?: string;
   discountCollectedEmail?: string;
