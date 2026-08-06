@@ -45,6 +45,15 @@ const NAV = [
     ),
   },
   {
+    href: '/discounts',
+    label: 'Discounts',
+    icon: (
+      <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M17 17h.01M9 19l10-16M7 9a2 2 0 100-4 2 2 0 000 4zm10 10a2 2 0 100-4 2 2 0 000 4z" />
+      </svg>
+    ),
+  },
+  {
     href: '/config',
     label: 'Configuration',
     icon: (

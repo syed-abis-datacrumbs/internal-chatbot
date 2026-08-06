@@ -122,6 +122,46 @@ export async function appendEnrollmentRow(data: {
   return match ? parseInt(match[1]) : -1;
 }
 
+export async function appendDiscountRow(data: {
+  name: string;
+  phone: string;
+  email?: string;
+  message: string;
+  timestamp: number;
+}): Promise<void> {
+  const sheets = google.sheets({ version: 'v4', auth: auth() });
+  const tab    = 'Discount';
+
+  // Ensure headers exist
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEET_ID,
+    range: `${tab}!A1:E1`,
+  });
+  if (!res.data.values?.length) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SHEET_ID,
+      range: `${tab}!A1`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [['Name', 'Email', 'Phone', 'Message', 'Submitted (PKT)']] },
+    });
+  }
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SHEET_ID,
+    range: `${tab}!A:E`,
+    valueInputOption: 'USER_ENTERED',
+    requestBody: {
+      values: [[
+        data.name,
+        data.email ?? '',
+        `+${data.phone}`,
+        data.message,
+        new Date(data.timestamp).toLocaleString('en-PK', { timeZone: 'Asia/Karachi' }),
+      ]],
+    },
+  });
+}
+
 export async function updateSheetStatus(rowIndex: number, status: string): Promise<void> {
   if (rowIndex < 1) return;
   const sheets = google.sheets({ version: 'v4', auth: auth() });

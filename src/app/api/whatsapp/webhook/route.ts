@@ -11,9 +11,10 @@ import {
   saveMessage, getRecentMessagesByPhone,
   getActiveEnrollmentSession, saveEnrollmentSession,
   getContactProfile, saveContactProfile,
+  saveDiscountRequest,
   type EnrollmentSession,
 } from '@/lib/redis';
-import { uploadScreenshotToDrive, appendEnrollmentRow } from '@/lib/google';
+import { uploadScreenshotToDrive, appendEnrollmentRow, appendDiscountRow } from '@/lib/google';
 
 // ── GET: Meta webhook verification ───────────────────────────────────────────
 export async function GET(req: NextRequest) {
@@ -479,6 +480,47 @@ export async function POST(req: NextRequest) {
         return;
       }
 
+      // ── 5a. Discount collection state ────────────────────────────────────
+      if (contactProfile?.discountPending) {
+        const collectedName  = contactProfile.discountCollectedName;
+        const collectedEmail = contactProfile.discountCollectedEmail;
+
+        let finalName:  string | null = collectedName  ?? null;
+        let finalEmail: string | null = collectedEmail ?? null;
+
+        const { email: parsedEmail, name: parsedName } = extractEmailAndName(text);
+        if (parsedEmail && !finalEmail) finalEmail = parsedEmail;
+        if (parsedName && looksLikeName(parsedName) && !finalName) finalName = parsedName;
+        // Raw text as name if short and looks like one
+        if (!finalName && looksLikeName(text.trim())) finalName = text.trim();
+
+        let discountReply: string;
+
+        if (finalName && finalEmail) {
+          const ts = Date.now();
+          try {
+            await saveDiscountRequest({ phone: from, name: finalName, email: finalEmail, message: contactProfile.discountOriginalMessage || text, timestamp: ts });
+            await appendDiscountRow({ name: finalName, phone: from, email: finalEmail, message: contactProfile.discountOriginalMessage || text, timestamp: ts });
+          } catch (err) {
+            console.error('Failed to save discount request:', err instanceof Error ? err.message : err);
+          }
+          await saveContactProfile({ phone: from, name: finalName, discountPending: false });
+          discountReply = `✅ Thank you, *${finalName}*! Your request has been forwarded to our management team. They'll reach out to you directly on this WhatsApp number shortly. 😊`;
+        } else if (finalEmail && !finalName) {
+          await saveContactProfile({ phone: from, discountCollectedEmail: finalEmail });
+          discountReply = `Got your email! 😊 Could you also share your *full name*, please?\n\nExample: _John Doe_`;
+        } else if (finalName && !finalEmail) {
+          await saveContactProfile({ phone: from, name: finalName, discountCollectedName: finalName });
+          discountReply = `Thanks *${finalName}*! 😊 Could you also share your *email address*?\n\nExample: _johndoe@gmail.com_`;
+        } else {
+          discountReply = `Please share your *full name* and *email address* so we can forward your request to the management team.\n\nExample: _John Doe, johndoe@gmail.com_`;
+        }
+
+        await sendWhatsAppMessage(from, discountReply);
+        await saveMessage({ from, text, reply: discountReply, timestamp: Date.now() });
+        return;
+      }
+
       // ── 5. Normal Gemini flow ─────────────────────────────────────────────
       const recentMsgs = await getRecentMessagesByPhone(from, 10);
 
@@ -496,6 +538,19 @@ export async function POST(req: NextRequest) {
       if (!contactProfile?.name && !contactProfile?.nameAsked && recentMsgs.length === 1) {
         reply += '\n\nBy the way, may I know your name? 😊';
         await saveContactProfile({ phone: from, nameAsked: true });
+      }
+
+      // Detect escalation reply → student asked for discount / financial help
+      // Instead of saving immediately, ask for name + email first
+      if (/noted down your request/i.test(reply)) {
+        const existingName = contactProfile?.name && looksLikeName(contactProfile.name) ? contactProfile.name : null;
+        if (existingName) {
+          reply = `I completely understand, *${existingName}*! 😊 To forward your request to our management team, please share your *email address*.\n\nExample: _johndoe@gmail.com_`;
+          await saveContactProfile({ phone: from, discountPending: true, discountOriginalMessage: text, discountCollectedName: existingName });
+        } else {
+          reply = `I completely understand your situation! 😊 To forward your request to our management team, please share your *full name* and *email address*.\n\nExample: _John Doe, johndoe@gmail.com_`;
+          await saveContactProfile({ phone: from, discountPending: true, discountOriginalMessage: text });
+        }
       }
 
       await sendWhatsAppMessage(from, reply);

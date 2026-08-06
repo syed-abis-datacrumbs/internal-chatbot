@@ -49,6 +49,11 @@ export interface ContactProfile {
   nameAsked: boolean;
   botDisabled: boolean;
   updatedAt: number;
+  // Discount collection state
+  discountPending?: boolean;
+  discountOriginalMessage?: string;
+  discountCollectedName?: string;
+  discountCollectedEmail?: string;
 }
 
 export async function getContactProfile(phone: string): Promise<ContactProfile | null> {
@@ -215,6 +220,31 @@ export async function getLeads(): Promise<Lead[]> {
     lastContact:  r.lastContact,
     messageCount: r.messageCount,
   }));
+}
+
+// ── Discount Requests ──────────────────────────────────────────────────────
+
+export interface DiscountRequest {
+  phone: string;
+  name: string;
+  email?: string;
+  message: string;
+  timestamp: number;
+}
+
+export async function saveDiscountRequest(data: DiscountRequest): Promise<void> {
+  const db = await getDb();
+  await db.collection('discount_requests').insertOne(data);
+}
+
+export async function getDiscountRequests(): Promise<DiscountRequest[]> {
+  const db   = await getDb();
+  const docs = await db
+    .collection<DiscountRequest>('discount_requests')
+    .find({})
+    .sort({ timestamp: -1 })
+    .toArray();
+  return docs.map(({ _id, ...rest }) => rest as DiscountRequest);
 }
 
 // ── Bot Config ─────────────────────────────────────────────────────────────
