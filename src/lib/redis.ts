@@ -74,12 +74,18 @@ export async function saveContactProfile(data: Partial<ContactProfile> & { phone
 export async function deleteAllMessages(): Promise<number> {
   const db = await getDb();
   const result = await db.collection('wa_messages').deleteMany({});
+  // Also clear per-contact state (name, discount flags, enrollment progress)
+  // so a wiped chat is a true fresh start, not just an empty message list.
+  await db.collection('contact_profiles').deleteMany({});
+  await db.collection('enrollment_sessions').deleteMany({});
   return result.deletedCount;
 }
 
 export async function deleteMessagesByPhone(phone: string): Promise<number> {
   const db = await getDb();
   const result = await db.collection('wa_messages').deleteMany({ from: phone });
+  await db.collection('contact_profiles').deleteOne({ phone });
+  await db.collection('enrollment_sessions').deleteMany({ phone });
   return result.deletedCount;
 }
 
