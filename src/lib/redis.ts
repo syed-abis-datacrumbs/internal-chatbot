@@ -58,6 +58,13 @@ export interface ContactProfile {
   // True once a discount_requests record exists for this contact — later price
   // pushback/negotiation messages update that record instead of restarting the offer flow
   hasSubmittedDiscountRequest?: boolean;
+  // Demo class collection state — simpler than discount: no yes/no offer step,
+  // goes straight to collecting name/email once a demo request is detected
+  demoPending?: boolean;
+  demoOriginalMessage?: string;
+  demoCollectedName?: string;
+  demoCollectedEmail?: string;
+  hasSubmittedDemoRequest?: boolean;
   // True right after we've sent a "you're welcome, anything else?" style closing reply
   lastReplyWasClosing?: boolean;
 }
@@ -84,6 +91,7 @@ export async function deleteAllMessages(): Promise<number> {
   // so a wiped chat is a true fresh start, not just an empty message list.
   await db.collection('contact_profiles').deleteMany({});
   await db.collection('enrollment_sessions').deleteMany({});
+  await db.collection('lead_sync_tracker').deleteMany({});
   return result.deletedCount;
 }
 
@@ -92,6 +100,7 @@ export async function deleteMessagesByPhone(phone: string): Promise<number> {
   const result = await db.collection('wa_messages').deleteMany({ from: phone });
   await db.collection('contact_profiles').deleteOne({ phone });
   await db.collection('enrollment_sessions').deleteMany({ phone });
+  await db.collection('lead_sync_tracker').deleteOne({ phone });
   return result.deletedCount;
 }
 
@@ -111,6 +120,24 @@ export async function hasPriorMessages(phone: string): Promise<boolean> {
   const db  = await getDb();
   const doc = await db.collection('wa_messages').findOne({ from: phone }, { projection: { _id: 1 } });
   return !!doc;
+}
+
+// Atomically claims "this phone is a brand-new lead" — used ONLY to gate the
+// agent-leads sheet write. A plain read-then-write check (hasPriorMessages)
+// has a race window: two near-simultaneous messages from a genuinely new
+// contact (a fast double-send, or a webhook retry) could both see "no prior
+// messages" and both write a lead row. findOneAndUpdate with $setOnInsert on
+// a phone-uniquely-indexed collection is atomic — MongoDB serializes
+// concurrent upserts on the same key, so only the call that actually created
+// the record gets true back; every other caller (racing or not) gets false.
+export async function claimNewLead(phone: string): Promise<boolean> {
+  const db = await getDb();
+  const result = await db.collection('lead_sync_tracker').findOneAndUpdate(
+    { phone },
+    { $setOnInsert: { phone, firstSeenAt: Date.now() } },
+    { upsert: true, returnDocument: 'before' },
+  );
+  return result === null; // null "before" doc = we just created it, i.e. genuinely new
 }
 
 export async function getRecentMessagesByPhone(phone: string, limit = 10): Promise<ChatMessage[]> {
@@ -287,6 +314,31 @@ export async function updateDiscountRequestComment(phone: string, comment: strin
     { $set: { comment } },
     { sort: { timestamp: -1 } },
   );
+}
+
+// ── Demo Requests ─────────────────────────────────────────────────────────
+
+export interface DemoRequest {
+  phone: string;
+  name: string;
+  email?: string;
+  message: string;
+  timestamp: number;
+}
+
+export async function saveDemoRequest(data: DemoRequest): Promise<void> {
+  const db = await getDb();
+  await db.collection('demo_requests').insertOne(data);
+}
+
+export async function getDemoRequests(): Promise<DemoRequest[]> {
+  const db   = await getDb();
+  const docs = await db
+    .collection<DemoRequest>('demo_requests')
+    .find({})
+    .sort({ timestamp: -1 })
+    .toArray();
+  return docs.map(({ _id, ...rest }) => rest as DemoRequest);
 }
 
 // ── Bot Config ─────────────────────────────────────────────────────────────

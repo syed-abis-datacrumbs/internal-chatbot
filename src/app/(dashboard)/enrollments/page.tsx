@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import DownloadCsvButton from '@/components/dashboard/DownloadCsvButton';
 
 type EnrollmentState =
   | 'collecting_name' | 'collecting_email' | 'awaiting_screenshot'
@@ -86,18 +87,25 @@ export default function EnrollmentsPage() {
 
         {/* Header */}
         <div style={{ marginBottom: 28 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <h1 style={{ fontSize: 28, fontWeight: 700, color: '#fff', margin: 0 }}>Enrollments</h1>
-            {pending > 0 && (
-              <span style={{
-                background: 'rgba(251,146,60,0.15)',
-                border: '1px solid rgba(251,146,60,0.4)',
-                color: '#fb923c', borderRadius: 20,
-                fontSize: 12, fontWeight: 700, padding: '2px 10px',
-              }}>
-                {pending} pending verification
-              </span>
-            )}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <h1 style={{ fontSize: 28, fontWeight: 700, color: '#fff', margin: 0 }}>Enrollments</h1>
+              {pending > 0 && (
+                <span style={{
+                  background: 'rgba(251,146,60,0.15)',
+                  border: '1px solid rgba(251,146,60,0.4)',
+                  color: '#fb923c', borderRadius: 20,
+                  fontSize: 12, fontWeight: 700, padding: '2px 10px',
+                }}>
+                  {pending} pending verification
+                </span>
+              )}
+            </div>
+            <DownloadCsvButton
+              filename="enrollments.csv"
+              headers={['Name', 'Email', 'Phone', 'Submitted', 'Status', 'Screenshot']}
+              rows={enrollments.map(e => [e.name ?? '', e.email ?? '', `+${e.phone}`, fmt(e.createdAt), e.state, e.driveFileUrl ?? ''])}
+            />
           </div>
           <p style={{ fontSize: 13, color: '#9ca3af', marginTop: 4 }}>
             {enrollments.length} total enrollment{enrollments.length !== 1 ? 's' : ''} collected via WhatsApp

@@ -40,6 +40,21 @@ export function wantsEnrollment(text: string): boolean {
   return ENROLLMENT_KEYWORDS.some(kw => lower.includes(kw));
 }
 
+const DEMO_KEYWORDS = [
+  'demo class', 'demo session', 'demo lecture', 'demo lesson', 'trial class',
+  'trial session', 'trial lecture', 'free class', 'free session', 'free demo',
+  'sample class', 'sample session', 'sample lecture', 'any demo', 'demo dete',
+  'demo dena', 'demo milta', 'trial dete', 'demo lena', 'demo class hai',
+  'demo class offer', 'do you offer demo', 'offer demo', 'demo lu', 'demo lo',
+];
+
+export function wantsDemo(text: string): boolean {
+  const lower = text.toLowerCase();
+  if (DEMO_KEYWORDS.some(kw => lower.includes(kw))) return true;
+  // "demo" alone paired with a class/lecture/session word nearby
+  return /\bdemo\b/i.test(lower) && /\b(class|session|lecture|lesson)\b/i.test(lower);
+}
+
 function apiUrl(path: string) {
   return `https://graph.facebook.com/v25.0/${process.env.PHONE_NUMBER_ID}${path}`;
 }

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Lead } from '@/lib/redis';
+import DownloadCsvButton from './DownloadCsvButton';
 
 const NEON   = '#5ce46d';
 const GLASS  = 'linear-gradient(180deg, rgba(20,29,25,0.8) 0%, rgba(13,20,17,0.9) 100%)';
@@ -30,7 +31,14 @@ export default function LeadsUI({ leads }: { leads: Lead[] }) {
 
         {/* Header */}
         <div style={{ marginBottom: 28 }}>
-          <h1 style={{ fontSize: 28, fontWeight: 700, color: '#fff', margin: 0 }}>Leads</h1>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <h1 style={{ fontSize: 28, fontWeight: 700, color: '#fff', margin: 0 }}>Leads</h1>
+            <DownloadCsvButton
+              filename="leads.csv"
+              headers={['Name', 'Phone', 'First Contact', 'Last Contact', 'Messages']}
+              rows={leads.map(l => [l.name ?? '', `+${l.phone}`, fmt(l.firstContact), fmt(l.lastContact), l.messageCount])}
+            />
+          </div>
           <p style={{ fontSize: 13, color: '#9ca3af', marginTop: 4, marginBottom: 14 }}>
             {leads.length} unique contact{leads.length !== 1 ? 's' : ''} who have messaged on WhatsApp
           </p>

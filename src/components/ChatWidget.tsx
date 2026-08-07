@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 
 interface Message {
   role: 'user' | 'bot';
@@ -17,6 +18,7 @@ const STORAGE_KEY = 'dc_chat_history';
 const GREEN = '#2AAA8A';
 
 export default function ChatWidget() {
+  const pathname                = usePathname();
   const [open, setOpen]         = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput]       = useState('');
@@ -32,6 +34,10 @@ export default function ChatWidget() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Hidden on the Chats dashboard tab — the real WhatsApp conversation view
+  // already lives there, and the floating widget just clutters it
+  if (pathname === '/chats') return null;
 
   function getTime() {
     return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });

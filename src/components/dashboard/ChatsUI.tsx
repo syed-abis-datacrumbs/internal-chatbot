@@ -2,11 +2,23 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { ChatMessage } from '@/lib/redis';
+import { WELCOME_GREETING } from '@/lib/knowledge';
 
 const NEON   = '#5ce46d';
 const BG     = '#090d0b';
 const GLASS  = 'linear-gradient(180deg, rgba(20,29,25,0.8) 0%, rgba(13,20,17,0.9) 100%)';
 const BORDER = '#202d26';
+
+// Quick-reply buttons above the admin input — click to send instantly, no typing needed
+const QUICK_ACTIONS: { label: string; message?: string; sendBrochure?: boolean }[] = [
+  { label: 'Greetings', message: WELCOME_GREETING },
+  { label: 'Send Brochure', sendBrochure: true, message: 'Here is our complete Data Science & AI Bootcamp brochure! It covers the full curriculum, pricing, internship details, and instructor profiles. Let me know if you have any questions 😊' },
+  { label: 'Curriculum', message: `Here's our 16-week curriculum:\n\n*Weeks 1-2:* Python & AI Tools Foundations\n*Weeks 3-4:* Python for Data (NumPy, Pandas)\n*Weeks 5-6:* AI & Machine Learning Fundamentals\n*Weeks 7-8:* AI & ML Projects (hands-on)\n*Weeks 9-10:* N8N Automation Foundations\n*Weeks 11-12:* GenAI Apps & Agentic Workflows\n*Weeks 13-14:* Deep Learning (TensorFlow)\n*Weeks 15-16:* Portfolio, Deployment & Career Support` },
+  { label: 'Timings', message: 'Our live classes are held on *Saturday and Sunday*, *4:00 PM – 5:30 PM*. All sessions are recorded and available on our Cognos LMS if you miss a class!' },
+  { label: 'Duration', message: `Our AI & Data Science Bootcamp is *4 Months (16 Weeks)*.\n\nUpon completion, you'll also get a *guaranteed 1-2 month industry internship*! 🚀` },
+];
+
+const EMOJI_PICKS = ['😊','👍','🙏','🎉','❤️','🔥','✅','😀','🚀','👋','💡','📅','💰','📄','🤝','😅'];
 
 interface Contact {
   phone: string;
@@ -58,17 +70,59 @@ export default function ChatsUI({ contacts: initial, total }: { contacts: Contac
   const [selected,    setSelected]    = useState<string | null>(initial[0]?.phone ?? null);
   const [input,       setInput]       = useState('');
   const [sending,     setSending]     = useState(false);
+  const [quickSending, setQuickSending] = useState<string | null>(null);
   const [hov,         setHov]         = useState<string | null>(null);
   const [botDisabled, setBotDisabled] = useState<boolean>(false);
   const [toggling,    setToggling]    = useState(false);
   const [deleting,    setDeleting]    = useState<string | null>(null);
   const [search,      setSearch]      = useState('');
+  const [showFilter,  setShowFilter]  = useState(false);
+  const [dateFrom,    setDateFrom]    = useState('');
+  const [dateTo,      setDateTo]      = useState('');
+  const [timeFrom,    setTimeFrom]    = useState('');
+  const [timeTo,      setTimeTo]      = useState('');
+  const [showEmoji,   setShowEmoji]   = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLInputElement>(null);
+  const filterRef = useRef<HTMLDivElement>(null);
+  const emojiRef  = useRef<HTMLDivElement>(null);
 
-  const filteredContacts = search.trim()
-    ? contacts.filter(c => c.phone.includes(search.trim().replace(/\D/g, '')))
-    : contacts;
+  const dateFilterActive = Boolean(dateFrom || dateTo || timeFrom || timeTo);
+
+  const filteredContacts = contacts.filter(c => {
+    if (search.trim() && !c.phone.includes(search.trim().replace(/\D/g, ''))) return false;
+    if (dateFilterActive) {
+      const d = new Date(c.lastMessage.timestamp);
+      if (dateFrom && d < new Date(`${dateFrom}T00:00:00`)) return false;
+      if (dateTo   && d > new Date(`${dateTo}T23:59:59`)) return false;
+      if (timeFrom || timeTo) {
+        const mins = d.getHours() * 60 + d.getMinutes();
+        if (timeFrom) {
+          const [fh, fm] = timeFrom.split(':').map(Number);
+          if (mins < fh * 60 + fm) return false;
+        }
+        if (timeTo) {
+          const [th, tm] = timeTo.split(':').map(Number);
+          if (mins > th * 60 + tm) return false;
+        }
+      }
+    }
+    return true;
+  });
+
+  function clearDateFilter() {
+    setDateFrom(''); setDateTo(''); setTimeFrom(''); setTimeTo('');
+  }
+
+  // Close popovers on outside click
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) setShowFilter(false);
+      if (emojiRef.current && !emojiRef.current.contains(e.target as Node)) setShowEmoji(false);
+    }
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, []);
 
   // Poll for new messages every 5 seconds
   useEffect(() => {
@@ -149,6 +203,28 @@ export default function ChatsUI({ contacts: initial, total }: { contacts: Contac
     finally { setSending(false); }
   }
 
+  async function handleQuickAction(action: typeof QUICK_ACTIONS[number]) {
+    if (!selected || quickSending) return;
+    setQuickSending(action.label);
+    const optimistic: ChatMessage = {
+      from: selected, text: '', reply: action.message ?? '', timestamp: Date.now(),
+      ...(action.sendBrochure ? { mediaType: 'document' as const } : {}),
+    };
+    setContacts(prev => prev.map(c =>
+      c.phone === selected
+        ? { ...c, messages: [optimistic, ...c.messages], lastMessage: optimistic }
+        : c
+    ));
+    try {
+      await fetch('/api/whatsapp/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: selected, message: action.message, sendBrochure: action.sendBrochure }),
+      });
+    } catch { /* optimistic shown */ }
+    finally { setQuickSending(null); }
+  }
+
   return (
     <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
 
@@ -164,26 +240,86 @@ export default function ChatsUI({ contacts: initial, total }: { contacts: Contac
           <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2, marginBottom: 10 }}>
             {contacts.length} contact{contacts.length !== 1 ? 's' : ''} · {total} message{total !== 1 ? 's' : ''}
           </div>
-          <div style={{ position: 'relative' }}>
+          <div style={{ display: 'flex', gap: 6, position: 'relative' }}>
             <input
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search by phone number…"
               style={{
-                width: '100%', boxSizing: 'border-box',
+                flex: 1, minWidth: 0, boxSizing: 'border-box',
                 background: '#0d1511', border: `1px solid ${BORDER}`,
                 borderRadius: 8, padding: '7px 10px', fontSize: 12.5,
                 color: '#e5e7eb', outline: 'none',
               }}
             />
+            <div style={{ position: 'relative' }} ref={filterRef}>
+              <button
+                onClick={() => setShowFilter(v => !v)}
+                title="Filter by date & time"
+                style={{
+                  width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                  background: dateFilterActive ? 'rgba(92,228,109,0.12)' : '#0d1511',
+                  border: `1px solid ${dateFilterActive ? 'rgba(92,228,109,0.4)' : BORDER}`,
+                  color: dateFilterActive ? NEON : '#9ca3af',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer',
+                }}
+              >
+                <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h18l-7 8v6l-4 2v-8L3 4z" />
+                </svg>
+              </button>
+              {showFilter && (
+                <div style={{
+                  position: 'absolute', top: 38, right: 0, zIndex: 20,
+                  width: 220, background: '#0d1511', border: `1px solid ${BORDER}`,
+                  borderRadius: 10, padding: 12,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', marginBottom: 8 }}>Filter by date & time</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <label style={{ fontSize: 10, color: '#6b7280' }}>
+                      Date from
+                      <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+                        style={{ width: '100%', marginTop: 3, boxSizing: 'border-box', background: '#090d0b', border: `1px solid ${BORDER}`, borderRadius: 6, padding: '5px 7px', fontSize: 11.5, color: '#e5e7eb' }} />
+                    </label>
+                    <label style={{ fontSize: 10, color: '#6b7280' }}>
+                      Date to
+                      <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+                        style={{ width: '100%', marginTop: 3, boxSizing: 'border-box', background: '#090d0b', border: `1px solid ${BORDER}`, borderRadius: 6, padding: '5px 7px', fontSize: 11.5, color: '#e5e7eb' }} />
+                    </label>
+                    <label style={{ fontSize: 10, color: '#6b7280' }}>
+                      Time from
+                      <input type="time" value={timeFrom} onChange={e => setTimeFrom(e.target.value)}
+                        style={{ width: '100%', marginTop: 3, boxSizing: 'border-box', background: '#090d0b', border: `1px solid ${BORDER}`, borderRadius: 6, padding: '5px 7px', fontSize: 11.5, color: '#e5e7eb' }} />
+                    </label>
+                    <label style={{ fontSize: 10, color: '#6b7280' }}>
+                      Time to
+                      <input type="time" value={timeTo} onChange={e => setTimeTo(e.target.value)}
+                        style={{ width: '100%', marginTop: 3, boxSizing: 'border-box', background: '#090d0b', border: `1px solid ${BORDER}`, borderRadius: 6, padding: '5px 7px', fontSize: 11.5, color: '#e5e7eb' }} />
+                    </label>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+                    <button onClick={clearDateFilter}
+                      style={{ flex: 1, fontSize: 11, padding: '6px 0', borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: '#9ca3af', cursor: 'pointer' }}>
+                      Clear
+                    </button>
+                    <button onClick={() => setShowFilter(false)}
+                      style={{ flex: 1, fontSize: 11, fontWeight: 600, padding: '6px 0', borderRadius: 6, border: 'none', background: NEON, color: '#000', cursor: 'pointer' }}>
+                      Apply
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {filteredContacts.length === 0 ? (
             <div style={{ padding: 32, textAlign: 'center', color: '#6b7280', fontSize: 13 }}>
-              {search.trim() ? 'No matching conversations' : 'No conversations yet'}
+              {search.trim() || dateFilterActive ? 'No matching conversations' : 'No conversations yet'}
             </div>
           ) : filteredContacts.map(c => {
             const isActive   = c.phone === selected;
@@ -432,6 +568,31 @@ export default function ChatsUI({ contacts: initial, total }: { contacts: Contac
               borderTop: `1px solid ${BORDER}`,
               padding: '10px 20px 14px',
             }}>
+              {/* Quick-reply buttons — click to send instantly, no typing needed */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 9 }}>
+                {QUICK_ACTIONS.map(action => {
+                  const isLoading = quickSending === action.label;
+                  return (
+                    <button
+                      key={action.label}
+                      onClick={() => handleQuickAction(action)}
+                      disabled={quickSending !== null}
+                      style={{
+                        fontSize: 11.5, fontWeight: 500,
+                        padding: '5px 12px', borderRadius: 20,
+                        background: 'rgba(92,228,109,0.08)',
+                        border: '1px solid rgba(92,228,109,0.25)',
+                        color: isLoading ? '#6b7280' : NEON,
+                        cursor: quickSending !== null ? 'not-allowed' : 'pointer',
+                        opacity: quickSending !== null && !isLoading ? 0.5 : 1,
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      {isLoading ? 'Sending…' : action.label}
+                    </button>
+                  );
+                })}
+              </div>
               <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 7 }}>
                 Send as admin to <strong style={{ color: '#9ca3af' }}>+{active.phone}</strong>
               </div>
@@ -455,6 +616,42 @@ export default function ChatsUI({ contacts: initial, total }: { contacts: Contac
                     color: '#e5e7eb', fontFamily: 'inherit',
                   }}
                 />
+                <div style={{ position: 'relative' }} ref={emojiRef}>
+                  <button
+                    onClick={() => setShowEmoji(v => !v)}
+                    title="Emoji"
+                    style={{
+                      width: 30, height: 30, borderRadius: '50%', border: 'none',
+                      background: 'transparent', color: '#9ca3af',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      cursor: 'pointer', flexShrink: 0, fontSize: 17,
+                    }}
+                  >
+                    🙂
+                  </button>
+                  {showEmoji && (
+                    <div style={{
+                      position: 'absolute', bottom: 40, right: 0, zIndex: 20,
+                      width: 200, background: '#0d1511', border: `1px solid ${BORDER}`,
+                      borderRadius: 10, padding: 10,
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                      display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 4,
+                    }}>
+                      {EMOJI_PICKS.map(emo => (
+                        <button
+                          key={emo}
+                          onClick={() => { setInput(prev => prev + emo); setShowEmoji(false); inputRef.current?.focus(); }}
+                          style={{
+                            fontSize: 18, background: 'transparent', border: 'none',
+                            cursor: 'pointer', padding: 4, borderRadius: 6,
+                          }}
+                        >
+                          {emo}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <button
                   onClick={handleSend}
                   disabled={sending || !input.trim()}

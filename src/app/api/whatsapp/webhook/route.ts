@@ -1,22 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { after } from 'next/server';
 import {
-  wantsBrochure, wantsEnrollment,
+  wantsBrochure, wantsEnrollment, wantsDemo,
   sendWhatsAppMessage, sendWhatsAppDocument,
   downloadWhatsAppMedia,
 } from '@/lib/whatsapp';
 import { getAIReply } from '@/lib/gemini';
 import { CORE_SYSTEM_PROMPT, WELCOME_GREETING } from '@/lib/knowledge';
 import {
-  saveMessage, getRecentMessagesByPhone, hasPriorMessages,
+  saveMessage, getRecentMessagesByPhone, hasPriorMessages, claimNewLead,
   getActiveEnrollmentSession, saveEnrollmentSession,
   getContactProfile, saveContactProfile,
   saveDiscountRequest, updateDiscountRequestComment,
+  saveDemoRequest,
   type EnrollmentSession,
 } from '@/lib/redis';
 import {
   uploadScreenshotToDrive, appendEnrollmentRow,
   appendDiscountRow, updateDiscountRowComment,
+  appendDemoRow,
   appendLeadRow, updateLeadName,
 } from '@/lib/google';
 
@@ -226,6 +228,17 @@ function isConversationalCloser(text: string): boolean {
   ]);
   const words = cleaned.split(' ');
   return words.every(w => CLOSER_WORDS.has(w));
+}
+
+// True if the message is nothing but emoji (a "reaction" typed as text — thumbs up,
+// heart, fire, etc.) with no real words at all. isConversationalCloser can't catch
+// these: stripping punctuation from a bare emoji leaves an empty string, which fails
+// its word-whitelist check entirely, so it used to fall through to Gemini and produce
+// a nonsensical reply instead of a graceful acknowledgment.
+function isPureEmojiMessage(text: string): boolean {
+  const stripped = text.replace(/[\s‍️]/gu, ''); // whitespace, zero-width joiner, variation selector
+  if (!stripped) return false;
+  return /^[\p{Extended_Pictographic}\p{Emoji_Modifier}]+$/u.test(stripped);
 }
 
 // True if the message is a plain greeting with no question attached —
@@ -578,8 +591,14 @@ export async function POST(req: NextRequest) {
 
       const explicitName = newlyStatedName || (contactProfile?.name && looksLikeName(contactProfile.name) ? contactProfile.name : undefined);
 
-      // ── New lead → log to the "agent leads" Google Sheet tab (once per contact) ──
-      if (!hadPriorMessages) {
+      // ── New lead → log to the "agent leads" Google Sheet tab (once per contact, ever) ──
+      // Uses an atomic claim (claimNewLead), not hadPriorMessages — a plain existence
+      // check has a race window where two near-simultaneous messages from the same
+      // genuinely-new contact could both see "no prior messages" and both write a row.
+      // This guarantees at most one row per phone no matter what: demo/discount/
+      // enrollment requests from a RETURNING contact are still fully handled below,
+      // they just never touch the leads sheet again since their number is already on file.
+      if (await claimNewLead(from)) {
         try {
           await appendLeadRow({ name: explicitName ?? null, phone: from, timestamp: Date.now() });
         } catch (err) {
@@ -695,6 +714,50 @@ export async function POST(req: NextRequest) {
         return;
       }
 
+      // ── 0c2. Demo class collection state ─────────────────────────────────
+      // Simpler than discount: no yes/no offer step — goes straight to
+      // collecting name/email once a demo request was detected (0e2 below).
+      if (msgType === 'text' && contactProfile?.demoPending) {
+        const collectedName  = contactProfile.demoCollectedName;
+        const collectedEmail = contactProfile.demoCollectedEmail;
+
+        let finalName:  string | null = collectedName  ?? null;
+        let finalEmail: string | null = collectedEmail ?? null;
+
+        const { email: parsedEmail, name: parsedName } = extractEmailAndName(text);
+        if (parsedEmail && !finalEmail) finalEmail = parsedEmail;
+        if (parsedName && looksLikeName(parsedName) && !finalName) finalName = parsedName;
+        if (!finalName && looksLikeName(text.trim())) finalName = text.trim();
+
+        let demoReply: string;
+
+        if (finalName && finalEmail) {
+          const ts = Date.now();
+          try {
+            await saveDemoRequest({ phone: from, name: finalName, email: finalEmail, message: contactProfile.demoOriginalMessage || text, timestamp: ts });
+            await appendDemoRow({ name: finalName, phone: from, email: finalEmail, message: contactProfile.demoOriginalMessage || text, timestamp: ts });
+          } catch (err) {
+            console.error('Failed to save demo request:', err instanceof Error ? err.message : err);
+          }
+          await saveContactProfile({ phone: from, name: finalName, demoPending: false, hasSubmittedDemoRequest: true });
+          await syncLeadNameIfNew(from, contactProfile?.name, finalName);
+          demoReply = `✅ Thank you, *${finalName}*! I've shared your demo class request with our management team. They'll reach out to you directly on this WhatsApp number shortly. 😊`;
+        } else if (finalEmail && !finalName) {
+          await saveContactProfile({ phone: from, demoCollectedEmail: finalEmail });
+          demoReply = `Got your email! 😊 Could you also share your *full name*, please?\n\nExample: _John Doe_`;
+        } else if (finalName && !finalEmail) {
+          await saveContactProfile({ phone: from, name: finalName, demoCollectedName: finalName });
+          await syncLeadNameIfNew(from, contactProfile?.name, finalName);
+          demoReply = `Thanks *${finalName}*! 😊 Could you also share your *email address*?\n\nExample: _johndoe@gmail.com_`;
+        } else {
+          demoReply = `Please share your *full name* and *email address* so I can share this with our management team.\n\nExample: _John Doe, johndoe@gmail.com_`;
+        }
+
+        await sendWhatsAppMessage(from, demoReply);
+        await saveMessage({ from, text, reply: demoReply, timestamp: Date.now() });
+        return;
+      }
+
       // ── 0d. B2B / vendor pitch — decline politely, never route into student flows ──
       if (msgType === 'text' && isBusinessPitch(text)) {
         const pitchReply = `Thank you for reaching out! 🙏\n\nWe're a student-focused training platform and don't take vendor or partnership meetings through this channel.\n\nFor business enquiries, please email *info@datacrumbs.org*.`;
@@ -757,17 +820,56 @@ export async function POST(req: NextRequest) {
         return;
       }
 
-      // ── 0f. Conversational closer ("thanks", "ok", "no more questions") ──
+      // ── 0e2. Demo class request trigger ──────────────────────────────────
+      // We DO offer demo classes — confirm that directly and go straight to
+      // collecting name/email (no yes/no offer step, unlike discount).
+      if (msgType === 'text' && wantsDemo(text)) {
+        const existingName = contactProfile?.name && looksLikeName(contactProfile.name) ? contactProfile.name : null;
+
+        // Already have a demo request on file — don't re-collect, just reassure
+        if (contactProfile?.hasSubmittedDemoRequest) {
+          const alreadyReply = `You're all set${existingName ? `, *${existingName}*` : ''}! We've already shared your demo class request with our management team — they'll reach out to you soon. 😊`;
+          await sendWhatsAppMessage(from, alreadyReply);
+          await saveMessage({ from, text, reply: alreadyReply, timestamp: Date.now() });
+          return;
+        }
+
+        const demoReply = existingName
+          ? `Yes, we do offer demo classes, *${existingName}*! 😊 Please also share your *email address* so I can share this with our management team.\n\nExample: _johndoe@gmail.com_`
+          : `Yes, we do offer demo classes! 😊 Please share your *full name* and *email address* so I can share this with our management team.\n\nExample: _John Doe, johndoe@gmail.com_`;
+
+        await saveContactProfile({
+          phone: from,
+          demoPending: true,
+          demoOriginalMessage: text,
+          ...(existingName ? { demoCollectedName: existingName } : {}),
+        });
+        const sentDoc2 = await attachBrochureIfFirstContact(hadPriorMessages, from);
+        await sendWhatsAppMessage(from, demoReply);
+        await saveMessage({
+          from, text, reply: demoReply, timestamp: Date.now(),
+          ...(sentDoc2 ? { mediaType: 'document' as const } : {}),
+        });
+        return;
+      }
+
+      // ── 0f. Conversational closer ("thanks", "ok", "no more questions", or a bare emoji) ──
       // Checked BEFORE the enrollment-session branch so a stuck/abandoned session
       // (e.g. someone started enrolling, got distracted, never provided name+email)
       // can't hijack every later "ok"/"thanks" into runEnrollmentMachine's raw Gemini
       // fallback, which has no concept of "don't repeat yourself" — that was producing
       // a fresh verbose reply to every single closer instead of a short acknowledgment.
-      if (msgType === 'text' && isConversationalCloser(text)) {
+      const isEmojiOnlyClose = msgType === 'text' && isPureEmojiMessage(text);
+      if (msgType === 'text' && (isConversationalCloser(text) || isEmojiOnlyClose)) {
         const existingName = contactProfile?.name && looksLikeName(contactProfile.name) ? contactProfile.name : null;
-        const closerReply = contactProfile?.lastReplyWasClosing
-          ? '🙂'
-          : `You're welcome${existingName ? `, *${existingName}*` : ''}! 😊 Feel free to reach out anytime you have more questions.`;
+        let closerReply: string;
+        if (contactProfile?.lastReplyWasClosing) {
+          closerReply = '🙂';
+        } else if (isEmojiOnlyClose) {
+          closerReply = `Thank you so much${existingName ? `, *${existingName}*` : ''} for contacting! 😊 If you want to ask anything in the future or whenever, feel free to contact me anytime.`;
+        } else {
+          closerReply = `You're welcome${existingName ? `, *${existingName}*` : ''}! 😊 Feel free to reach out anytime you have more questions.`;
+        }
         await saveContactProfile({ phone: from, lastReplyWasClosing: true });
         await sendWhatsAppMessage(from, closerReply);
         await saveMessage({ from, text, reply: closerReply, timestamp: Date.now() });

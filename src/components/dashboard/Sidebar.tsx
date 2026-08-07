@@ -25,7 +25,7 @@ const NAV: { href: string; label: string; countKey?: CountKey; icon: React.React
     countKey: 'chats',
     icon: (
       <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
       </svg>
     ),
   },
@@ -35,7 +35,7 @@ const NAV: { href: string; label: string; countKey?: CountKey; icon: React.React
     countKey: 'leads',
     icon: (
       <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
       </svg>
     ),
   },
@@ -45,7 +45,7 @@ const NAV: { href: string; label: string; countKey?: CountKey; icon: React.React
     countKey: 'enrollments',
     icon: (
       <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
     ),
   },
@@ -55,6 +55,15 @@ const NAV: { href: string; label: string; countKey?: CountKey; icon: React.React
     icon: (
       <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M17 17h.01M9 19l10-16M7 9a2 2 0 100-4 2 2 0 000 4zm10 10a2 2 0 100-4 2 2 0 000 4z" />
+      </svg>
+    ),
+  },
+  {
+    href: '/demo',
+    label: 'Demo Requests',
+    icon: (
+      <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.55-2.55a1 1 0 011.45.9v7.3a1 1 0 01-1.45.9L15 14M5 6h9a1 1 0 011 1v10a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1z" />
       </svg>
     ),
   },
@@ -134,7 +143,8 @@ export default function Sidebar() {
                     ? 'linear-gradient(to right, #204027, #122316)'
                     : hovering ? '#121a16' : 'transparent',
                   border: `1px solid ${active ? '#2b5133' : 'transparent'}`,
-                  color: active || hovering ? '#fff' : '#9ca3af',
+                  boxShadow: active ? '0 0 15px rgba(92,228,109,0.3)' : 'none',
+                  color: active ? NEON : hovering ? '#fff' : '#9ca3af',
                   transition: 'all 0.15s',
                 }}>
                   <span style={{ color: active ? NEON : 'inherit', display: 'flex', flexShrink: 0 }}>

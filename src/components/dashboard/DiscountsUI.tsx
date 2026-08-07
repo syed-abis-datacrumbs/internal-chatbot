@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { DiscountRequest } from '@/lib/redis';
+import DownloadCsvButton from './DownloadCsvButton';
 
 const NEON   = '#5ce46d';
 const GLASS  = 'linear-gradient(180deg, rgba(20,29,25,0.8) 0%, rgba(13,20,17,0.9) 100%)';
@@ -35,9 +36,16 @@ export default function DiscountsUI({ requests }: { requests: DiscountRequest[] 
 
           {/* Header */}
           <div style={{ marginBottom: 28 }}>
-            <h1 style={{ fontSize: 28, fontWeight: 700, color: '#fff', margin: 0 }}>
-              Discount Requests
-            </h1>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <h1 style={{ fontSize: 28, fontWeight: 700, color: '#fff', margin: 0 }}>
+                Discount Requests
+              </h1>
+              <DownloadCsvButton
+                filename="discount-requests.csv"
+                headers={['Name', 'Email', 'Phone', 'Message', 'Submitted', 'Comment']}
+                rows={requests.map(r => [r.name, r.email ?? '', `+${r.phone}`, r.message, formatTime(r.timestamp), r.comment ?? ''])}
+              />
+            </div>
             <p style={{ fontSize: 13, color: '#9ca3af', marginTop: 4, marginBottom: 14 }}>
               Students who asked for financial support or a discount — {requests.length} request{requests.length !== 1 ? 's' : ''}
             </p>

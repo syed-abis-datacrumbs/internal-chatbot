@@ -185,9 +185,21 @@ function LineChart({ data }: { data: { date: string; count: number }[] }) {
 
 // ── KPI cards ─────────────────────────────────────────────────────────────
 
-function SparkCard({ icon, value, label, todayNew }: {
-  icon: React.ReactNode; value: number; label: string; todayNew: number;
+function SparkCard({ icon, value, label, todayNew, sparkData }: {
+  icon: React.ReactNode; value: number; label: string; todayNew: number; sparkData: number[];
 }) {
+  // Small area sparkline, anchored bottom-right (matches the reference template's
+  // w-32 h-16 mini chart) — driven by real last-7-days counts, not decorative.
+  const W = 100, H = 64;
+  const max = Math.max(...sparkData, 1);
+  const pts = sparkData.map((v, i) => ({
+    x: sparkData.length <= 1 ? W / 2 : (i / (sparkData.length - 1)) * W,
+    y: H - 6 - (v / max) * (H - 12),
+  }));
+  const line = smooth(pts);
+  const area = `${line} L${W},${H} L0,${H} Z`;
+  const last = pts[pts.length - 1];
+
   return (
     <div style={{ ...glass, borderRadius: 16, padding: 20, height: 160, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', position: 'relative', overflow: 'hidden' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', zIndex: 1 }}>
@@ -201,19 +213,27 @@ function SparkCard({ icon, value, label, todayNew }: {
       </div>
       <div style={{ fontSize: 13, color: '#d1d5db', zIndex: 1 }}>{label}</div>
 
-      {/* Decorative sparkline */}
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 64, opacity: 0.55, pointerEvents: 'none' }}>
-        <svg preserveAspectRatio="none" viewBox="0 0 100 64" style={{ width: '100%', height: '100%' }}>
+      {/* Mini sparkline — bottom-right, real last-7-days trend */}
+      <div style={{ position: 'absolute', bottom: 0, right: 0, width: '55%', height: 64, opacity: 0.85, pointerEvents: 'none' }}>
+        <svg preserveAspectRatio="none" viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: '100%' }}>
           <defs>
             <linearGradient id="spark" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={NEON} stopOpacity="0.5" />
+              <stop offset="0%" stopColor={NEON} stopOpacity="0.45" />
               <stop offset="100%" stopColor={NEON} stopOpacity="0" />
             </linearGradient>
           </defs>
-          <path d="M0 52 Q 20 30, 35 48 T 60 22 T 85 34 T 100 10 L 100 64 L 0 64 Z" fill="url(#spark)" />
-          <path d="M0 52 Q 20 30, 35 48 T 60 22 T 85 34 T 100 10" fill="none" stroke={NEON} strokeWidth="1.8" />
-          <circle cx="100" cy="10" r="3" fill={NEON} style={{ filter: 'drop-shadow(0 0 4px rgba(92,228,109,0.9))' }} />
+          <path d={area} fill="url(#spark)" />
+          <path d={line} fill="none" stroke={NEON} strokeWidth="1.8"
+            style={{ filter: 'drop-shadow(0 0 4px rgba(92,228,109,0.6))' }} />
         </svg>
+        {last && (
+          <div style={{
+            position: 'absolute', left: `${(last.x / W) * 100}%`, top: `${(last.y / H) * 100}%`,
+            width: 6, height: 6, borderRadius: '50%', background: NEON,
+            transform: 'translate(-50%, -50%)',
+            boxShadow: '0 0 6px rgba(92,228,109,0.9)',
+          }} />
+        )}
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, zIndex: 1 }}>
@@ -239,6 +259,8 @@ function MsgCard({ value, todayHours }: { value: number; todayHours: number[] })
   // Sample every 2 hours
   const bars = HOUR_LABELS.map((_, i) => todayHours[i * 2] ?? 0);
   const bMax = Math.max(...bars, 1);
+  // Only the peak hour is highlighted (matches reference template) — the rest stay dim
+  const peakIdx = bars.reduce((best, v, i) => v > bars[best] ? i : best, 0);
   return (
     <div style={{ ...glass, borderRadius: 16, padding: 20, height: 160, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -261,12 +283,13 @@ function MsgCard({ value, todayHours }: { value: number; todayHours: number[] })
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 40 }}>
         {bars.map((count, i) => {
           const pct = Math.max((count / bMax) * 100, count > 0 ? 30 : 8);
+          const isPeak = i === peakIdx && count > 0;
           return (
             <div key={i} style={{
               flex: 1, height: `${pct}%`,
-              background: count > 0 ? NEON : '#1a2a1e',
+              background: isPeak ? NEON : '#1a2a1e',
               borderRadius: '2px 2px 0 0',
-              boxShadow: count > 0 ? '0 0 6px rgba(92,228,109,0.45)' : 'none',
+              boxShadow: isPeak ? '0 0 6px rgba(92,228,109,0.45)' : 'none',
             }} />
           );
         })}
@@ -369,6 +392,7 @@ export default async function OverviewPage() {
             value={stats.totalContacts}
             label="Total Leads"
             todayNew={stats.todayContacts}
+            sparkData={stats.last7Days.map(d => d.count)}
           />
           <MsgCard value={stats.todayMessages} todayHours={stats.todayHours} />
           <RespCard value={stats.totalMessages} />

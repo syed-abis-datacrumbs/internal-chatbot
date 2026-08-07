@@ -6,6 +6,7 @@ const SHEET_ID          = process.env.GOOGLE_SHEET_ID!;
 const SHEET_TAB         = process.env.GOOGLE_SHEET_TAB ?? 'Payment info bot';
 const DISCOUNT_TAB      = process.env.GOOGLE_SHEET_TAB_DISCOUNT ?? 'Discount';
 const LEADS_TAB         = process.env.GOOGLE_SHEET_TAB_LEADS ?? 'agent leads';
+const DEMO_TAB          = process.env.GOOGLE_SHEET_TAB_DEMO ?? 'Demo';
 
 function auth() {
   return new google.auth.JWT({
@@ -195,6 +196,47 @@ export async function updateDiscountRowComment(phone: string, comment: string): 
       return;
     }
   }
+}
+
+// ── Demo Requests ────────────────────────────────────────────────────────
+
+export async function appendDemoRow(data: {
+  name: string;
+  phone: string;
+  email?: string;
+  message: string;
+  timestamp: number;
+}): Promise<void> {
+  const sheets = google.sheets({ version: 'v4', auth: auth() });
+  const tab    = DEMO_TAB;
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEET_ID,
+    range: `${tab}!A1:E1`,
+  });
+  if (!res.data.values?.length) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SHEET_ID,
+      range: `${tab}!A1`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [['Name', 'Email', 'Phone', 'Message', 'Submitted (PKT)']] },
+    });
+  }
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SHEET_ID,
+    range: `${tab}!A:E`,
+    valueInputOption: 'USER_ENTERED',
+    requestBody: {
+      values: [[
+        data.name,
+        data.email ?? '',
+        `'+${data.phone}`, // leading ' forces text — see appendEnrollmentRow for why
+        data.message,
+        new Date(data.timestamp).toLocaleString('en-PK', { timeZone: 'Asia/Karachi' }),
+      ]],
+    },
+  });
 }
 
 // ── Leads ──────────────────────────────────────────────────────────────────
