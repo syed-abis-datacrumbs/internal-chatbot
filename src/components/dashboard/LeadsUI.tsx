@@ -31,8 +31,8 @@ export default function LeadsUI({ leads }: { leads: SheetLead[] }) {
             <h1 style={{ fontSize: 28, fontWeight: 700, color: '#fff', margin: 0 }}>Leads</h1>
             <DownloadCsvButton
               filename="leads.csv"
-              headers={['Name', 'Phone', 'Date', 'Time']}
-              rows={leads.map(l => [l.name ?? '', `+${l.phone}`, l.date, l.time])}
+              headers={['Name', 'Email', 'Phone', 'Date', 'Time', 'Status']}
+              rows={leads.map(l => [l.name ?? '', l.email ?? '', `+${l.phone}`, l.date, l.time, l.status ?? ''])}
             />
           </div>
           <p style={{ fontSize: 13, color: '#9ca3af', marginTop: 4, marginBottom: 14 }}>
@@ -65,7 +65,7 @@ export default function LeadsUI({ leads }: { leads: SheetLead[] }) {
             {/* Header row */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: '40px 1fr 130px 100px',
+              gridTemplateColumns: '40px 1fr 160px 110px 100px 110px',
               padding: '12px 20px',
               background: 'rgba(13,20,17,0.6)',
               borderBottom: '1px solid #1a251f',
@@ -74,8 +74,10 @@ export default function LeadsUI({ leads }: { leads: SheetLead[] }) {
             }}>
               <div>#</div>
               <div>Phone Number</div>
+              <div>Email</div>
               <div>Date</div>
               <div>Time</div>
+              <div>Status</div>
             </div>
 
             <style>{`.lead-row:hover { background: rgba(92,228,109,0.04) !important; }`}</style>
@@ -85,7 +87,7 @@ export default function LeadsUI({ leads }: { leads: SheetLead[] }) {
                 className="lead-row"
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '40px 1fr 130px 100px',
+                  gridTemplateColumns: '40px 1fr 160px 110px 100px 110px',
                   padding: '14px 20px',
                   borderBottom: i < filtered.length - 1 ? '1px solid #1a251f' : 'none',
                   alignItems: 'center', fontSize: 13,
@@ -122,8 +124,10 @@ export default function LeadsUI({ leads }: { leads: SheetLead[] }) {
                   </div>
                 </div>
 
+                <div style={{ color: '#9ca3af', fontSize: 12, wordBreak: 'break-all', paddingRight: 8 }}>{lead.email || '—'}</div>
                 <div style={{ color: '#9ca3af', fontSize: 12 }}>{lead.date}</div>
                 <div style={{ color: '#9ca3af', fontSize: 12 }}>{lead.time}</div>
+                <div style={{ color: '#9ca3af', fontSize: 12 }}>{lead.status || '—'}</div>
               </div>
             ))}
           </div>

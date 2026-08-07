@@ -240,6 +240,10 @@ export async function appendDemoRow(data: {
 }
 
 // ── Leads ──────────────────────────────────────────────────────────────────
+// Column layout: Date(A) Time(B) Name(C) Email(D) Phone(E) Status(F) Slot 1-4(G-J)
+// Attempts(K) Notes(L) GRP UPDATE(M) Confirmation Date(N) Total Talk(O)
+// Last Call Length(P) Last Call At(Q). Columns F onward are a manually-maintained
+// CRM workflow owned by the sales team — our code only ever touches A:E.
 
 function formatLeadRow(name: string | null, phone: string, timestamp: number): string[] {
   const dateStr = new Date(timestamp).toLocaleDateString('en-PK', {
@@ -249,22 +253,7 @@ function formatLeadRow(name: string | null, phone: string, timestamp: number): s
     timeZone: 'Asia/Karachi', hour: '2-digit', minute: '2-digit', hour12: true,
   });
   // Leading ' forces text under USER_ENTERED — see appendEnrollmentRow for why
-  return [name ?? '', `'+${phone}`, dateStr, timeStr];
-}
-
-async function ensureLeadsHeader(sheets: ReturnType<typeof google.sheets>): Promise<void> {
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: SHEET_ID,
-    range: `${LEADS_TAB}!A1:D1`,
-  });
-  if (!res.data.values?.length) {
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: SHEET_ID,
-      range: `${LEADS_TAB}!A1`,
-      valueInputOption: 'USER_ENTERED',
-      requestBody: { values: [['Name', 'Phone', 'Date', 'Time']] },
-    });
-  }
+  return [dateStr, timeStr, name ?? '', '', `'+${phone}`];
 }
 
 export async function appendLeadRow(data: {
@@ -273,10 +262,9 @@ export async function appendLeadRow(data: {
   timestamp: number;
 }): Promise<void> {
   const sheets = google.sheets({ version: 'v4', auth: auth() });
-  await ensureLeadsHeader(sheets);
   await sheets.spreadsheets.values.append({
     spreadsheetId: SHEET_ID,
-    range: `${LEADS_TAB}!A:D`,
+    range: `${LEADS_TAB}!A:E`,
     valueInputOption: 'USER_ENTERED',
     requestBody: { values: [formatLeadRow(data.name, data.phone, data.timestamp)] },
   });
@@ -287,10 +275,9 @@ export async function appendLeadRows(
 ): Promise<void> {
   if (!rows.length) return;
   const sheets = google.sheets({ version: 'v4', auth: auth() });
-  await ensureLeadsHeader(sheets);
   await sheets.spreadsheets.values.append({
     spreadsheetId: SHEET_ID,
-    range: `${LEADS_TAB}!A:D`,
+    range: `${LEADS_TAB}!A:E`,
     valueInputOption: 'USER_ENTERED',
     requestBody: { values: rows.map(r => formatLeadRow(r.name, r.phone, r.timestamp)) },
   });
@@ -304,18 +291,18 @@ export async function updateLeadName(phone: string, name: string): Promise<void>
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
-    range: `${LEADS_TAB}!A:D`,
+    range: `${LEADS_TAB}!A:E`,
   });
   const rows = res.data.values ?? [];
 
   for (let i = 1; i < rows.length; i++) {
-    const rowPhone = rows[i][1];
-    const rowName  = rows[i][0];
+    const rowPhone = rows[i][4]; // Phone
+    const rowName  = rows[i][2]; // Name
     if (rowPhone === target && !rowName) {
       const rowNumber = i + 1;
       await sheets.spreadsheets.values.update({
         spreadsheetId: SHEET_ID,
-        range: `${LEADS_TAB}!A${rowNumber}`,
+        range: `${LEADS_TAB}!C${rowNumber}`,
         valueInputOption: 'USER_ENTERED',
         requestBody: { values: [[name]] },
       });
@@ -340,22 +327,24 @@ export async function updateSheetStatus(rowIndex: number, status: string): Promi
 // the reviewed, editable source of truth for Leads/Discounts/Demo/Enrollments;
 // only Chats reflects MongoDB directly). ──────────────────────────────────
 
-export interface SheetLead { name: string; phone: string; date: string; time: string }
+export interface SheetLead { name: string; email: string; phone: string; date: string; time: string; status: string }
 
 export async function getLeadsFromSheet(): Promise<SheetLead[]> {
   const sheets = google.sheets({ version: 'v4', auth: auth() });
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
-    range: `${LEADS_TAB}!A2:D`,
+    range: `${LEADS_TAB}!A2:F`,
   });
   const rows = res.data.values ?? [];
   return rows
-    .filter(r => r[1])
+    .filter(r => r[4])
     .map(r => ({
-      name: r[0] ?? '',
-      phone: String(r[1] ?? '').replace(/^\+/, ''),
-      date: r[2] ?? '',
-      time: r[3] ?? '',
+      date: r[0] ?? '',
+      time: r[1] ?? '',
+      name: r[2] ?? '',
+      email: r[3] ?? '',
+      phone: String(r[4] ?? '').replace(/^\+/, ''),
+      status: r[5] ?? '',
     }));
 }
 
@@ -433,7 +422,7 @@ export async function getEnrollmentsFromSheet(): Promise<SheetEnrollment[]> {
 export async function getSheetNavCounts(): Promise<{ leads: number; enrollments: number }> {
   const sheets = google.sheets({ version: 'v4', auth: auth() });
   const [leadsRes, enrollRes] = await Promise.all([
-    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${LEADS_TAB}!B2:B` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${LEADS_TAB}!E2:E` }),
     sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${SHEET_TAB}!C2:C` }),
   ]);
   const leads       = (leadsRes.data.values ?? []).filter(r => r[0]).length;
