@@ -3,35 +3,27 @@
 import { useState, useEffect, useCallback } from 'react';
 import DownloadCsvButton from '@/components/dashboard/DownloadCsvButton';
 
-type EnrollmentState =
-  | 'collecting_name' | 'collecting_email' | 'awaiting_screenshot'
-  | 'screenshot_received' | 'approved' | 'rejected';
-
 interface Enrollment {
+  rowIndex: number;
+  name: string;
+  email: string;
   phone: string;
-  state: EnrollmentState;
-  name: string | null;
-  email: string | null;
-  driveFileUrl: string | null;
-  sheetRowIndex: number | null;
-  createdAt: number;
-  updatedAt: number;
+  submitted: string;
+  driveLink: string;
+  status: string;
 }
 
 const NEON   = '#5ce46d';
 const GLASS  = 'linear-gradient(180deg, rgba(20,29,25,0.8) 0%, rgba(13,20,17,0.9) 100%)';
 const BORDER = '1px solid #202d26';
 
-function stateBadge(state: EnrollmentState) {
-  const map: Record<EnrollmentState, { label: string; color: string; bg: string }> = {
-    collecting_name:     { label: 'Collecting Name',  color: '#9ca3af', bg: 'rgba(156,163,175,0.1)' },
-    collecting_email:    { label: 'Collecting Email', color: '#9ca3af', bg: 'rgba(156,163,175,0.1)' },
-    awaiting_screenshot: { label: 'Awaiting Screenshot', color: '#e4e15c', bg: 'rgba(228,225,92,0.1)' },
-    screenshot_received: { label: 'Pending Verification', color: '#fb923c', bg: 'rgba(251,146,60,0.1)' },
-    approved:            { label: 'Approved ✅', color: NEON, bg: 'rgba(92,228,109,0.1)' },
-    rejected:            { label: 'Rejected ❌', color: '#f87171', bg: 'rgba(248,113,113,0.1)' },
+function statusBadge(status: string) {
+  const map: Record<string, { label: string; color: string; bg: string }> = {
+    'Pending':     { label: 'Pending Verification', color: '#fb923c', bg: 'rgba(251,146,60,0.1)' },
+    'Approved ✅': { label: 'Approved ✅', color: NEON, bg: 'rgba(92,228,109,0.1)' },
+    'Rejected ❌': { label: 'Rejected ❌', color: '#f87171', bg: 'rgba(248,113,113,0.1)' },
   };
-  const s = map[state];
+  const s = map[status] ?? map['Pending'];
   return (
     <span style={{
       padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
@@ -41,10 +33,6 @@ function stateBadge(state: EnrollmentState) {
       {s.label}
     </span>
   );
-}
-
-function fmt(ts: number) {
-  return new Date(ts).toLocaleString('en-PK', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
 export default function EnrollmentsPage() {
@@ -79,7 +67,7 @@ export default function EnrollmentsPage() {
     }
   }
 
-  const pending = enrollments.filter(e => e.state === 'screenshot_received').length;
+  const pending = enrollments.filter(e => e.status === 'Pending').length;
 
   return (
     <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -104,7 +92,7 @@ export default function EnrollmentsPage() {
             <DownloadCsvButton
               filename="enrollments.csv"
               headers={['Name', 'Email', 'Phone', 'Submitted', 'Status', 'Screenshot']}
-              rows={enrollments.map(e => [e.name ?? '', e.email ?? '', `+${e.phone}`, fmt(e.createdAt), e.state, e.driveFileUrl ?? ''])}
+              rows={enrollments.map(e => [e.name ?? '', e.email ?? '', `+${e.phone}`, e.submitted, e.status, e.driveLink ?? ''])}
             />
           </div>
           <p style={{ fontSize: 13, color: '#9ca3af', marginTop: 4 }}>
@@ -158,21 +146,21 @@ export default function EnrollmentsPage() {
                 }}
               >
                 <div style={{ fontWeight: 600, color: '#e5e7eb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8 }}>
-                  {e.name ?? <span style={{ color: '#4b5563' }}>—</span>}
+                  {e.name || <span style={{ color: '#4b5563' }}>—</span>}
                 </div>
 
                 <div style={{ color: '#9ca3af', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8 }}>
-                  {e.email ?? <span style={{ color: '#4b5563' }}>—</span>}
+                  {e.email || <span style={{ color: '#4b5563' }}>—</span>}
                 </div>
 
                 <div style={{ color: '#9ca3af', fontSize: 12 }}>+{e.phone}</div>
 
-                <div style={{ color: '#6b7280', fontSize: 11 }}>{fmt(e.createdAt)}</div>
+                <div style={{ color: '#6b7280', fontSize: 11 }}>{e.submitted}</div>
 
                 <div>
-                  {e.driveFileUrl ? (
+                  {e.driveLink ? (
                     <a
-                      href={e.driveFileUrl}
+                      href={e.driveLink}
                       target="_blank"
                       rel="noreferrer"
                       style={{ fontSize: 12, color: NEON, fontWeight: 500, textDecoration: 'none' }}
@@ -184,10 +172,10 @@ export default function EnrollmentsPage() {
                   )}
                 </div>
 
-                <div>{stateBadge(e.state)}</div>
+                <div>{statusBadge(e.status)}</div>
 
                 <div style={{ display: 'flex', gap: 6 }}>
-                  {e.state === 'screenshot_received' && (
+                  {e.status === 'Pending' && (
                     <>
                       <button
                         onClick={() => act(e.phone, 'approved')}

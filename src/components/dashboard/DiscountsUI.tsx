@@ -1,20 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { DiscountRequest } from '@/lib/redis';
+import { SheetDiscountRequest } from '@/lib/google';
 import DownloadCsvButton from './DownloadCsvButton';
 
 const NEON   = '#5ce46d';
 const GLASS  = 'linear-gradient(180deg, rgba(20,29,25,0.8) 0%, rgba(13,20,17,0.9) 100%)';
 const BORDER = '#202d26';
 
-function formatTime(ts: number) {
-  return new Date(ts).toLocaleString('en-PK', {
-    dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Karachi',
-  });
-}
-
-export default function DiscountsUI({ requests }: { requests: DiscountRequest[] }) {
+export default function DiscountsUI({ requests }: { requests: SheetDiscountRequest[] }) {
   const [search, setSearch] = useState('');
 
   const filtered = search.trim()
@@ -43,7 +37,7 @@ export default function DiscountsUI({ requests }: { requests: DiscountRequest[] 
               <DownloadCsvButton
                 filename="discount-requests.csv"
                 headers={['Name', 'Email', 'Phone', 'Message', 'Submitted', 'Comment']}
-                rows={requests.map(r => [r.name, r.email ?? '', `+${r.phone}`, r.message, formatTime(r.timestamp), r.comment ?? ''])}
+                rows={requests.map(r => [r.name, r.email ?? '', `+${r.phone}`, r.message, r.submitted, r.comment ?? ''])}
               />
             </div>
             <p style={{ fontSize: 13, color: '#9ca3af', marginTop: 4, marginBottom: 14 }}>
@@ -122,7 +116,7 @@ export default function DiscountsUI({ requests }: { requests: DiscountRequest[] 
                     {r.message}
                   </span>
                   <span style={{ fontSize: 11.5, color: '#6b7280' }}>
-                    {formatTime(r.timestamp)}
+                    {r.submitted}
                   </span>
                 </div>
               ))}

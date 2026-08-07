@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { getAllEnrollments } from '@/lib/redis';
+import { getEnrollmentsFromSheet } from '@/lib/google';
 
 export async function GET() {
-  const enrollments = await getAllEnrollments();
+  const enrollments = await getEnrollmentsFromSheet();
   return NextResponse.json({ enrollments });
 }

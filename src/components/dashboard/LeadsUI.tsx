@@ -1,18 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { Lead } from '@/lib/redis';
+import { SheetLead } from '@/lib/google';
 import DownloadCsvButton from './DownloadCsvButton';
 
 const NEON   = '#5ce46d';
 const GLASS  = 'linear-gradient(180deg, rgba(20,29,25,0.8) 0%, rgba(13,20,17,0.9) 100%)';
 const BORDER = '1px solid #202d26';
 
-function fmt(ts: number) {
-  return new Date(ts).toLocaleString('en-PK', { dateStyle: 'medium', timeStyle: 'short' });
-}
-
-export default function LeadsUI({ leads }: { leads: Lead[] }) {
+export default function LeadsUI({ leads }: { leads: SheetLead[] }) {
   const [search, setSearch] = useState('');
 
   const filtered = search.trim()
@@ -35,8 +31,8 @@ export default function LeadsUI({ leads }: { leads: Lead[] }) {
             <h1 style={{ fontSize: 28, fontWeight: 700, color: '#fff', margin: 0 }}>Leads</h1>
             <DownloadCsvButton
               filename="leads.csv"
-              headers={['Name', 'Phone', 'First Contact', 'Last Contact', 'Messages']}
-              rows={leads.map(l => [l.name ?? '', `+${l.phone}`, fmt(l.firstContact), fmt(l.lastContact), l.messageCount])}
+              headers={['Name', 'Phone', 'Date', 'Time']}
+              rows={leads.map(l => [l.name ?? '', `+${l.phone}`, l.date, l.time])}
             />
           </div>
           <p style={{ fontSize: 13, color: '#9ca3af', marginTop: 4, marginBottom: 14 }}>
@@ -69,7 +65,7 @@ export default function LeadsUI({ leads }: { leads: Lead[] }) {
             {/* Header row */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: '40px 1fr 1fr 1fr 90px',
+              gridTemplateColumns: '40px 1fr 130px 100px',
               padding: '12px 20px',
               background: 'rgba(13,20,17,0.6)',
               borderBottom: '1px solid #1a251f',
@@ -78,19 +74,18 @@ export default function LeadsUI({ leads }: { leads: Lead[] }) {
             }}>
               <div>#</div>
               <div>Phone Number</div>
-              <div>First Contact</div>
-              <div>Last Contact</div>
-              <div style={{ textAlign: 'center' }}>Messages</div>
+              <div>Date</div>
+              <div>Time</div>
             </div>
 
             <style>{`.lead-row:hover { background: rgba(92,228,109,0.04) !important; }`}</style>
             {filtered.map((lead, i) => (
               <div
-                key={lead.phone}
+                key={`${lead.phone}-${i}`}
                 className="lead-row"
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '40px 1fr 1fr 1fr 90px',
+                  gridTemplateColumns: '40px 1fr 130px 100px',
                   padding: '14px 20px',
                   borderBottom: i < filtered.length - 1 ? '1px solid #1a251f' : 'none',
                   alignItems: 'center', fontSize: 13,
@@ -127,21 +122,8 @@ export default function LeadsUI({ leads }: { leads: Lead[] }) {
                   </div>
                 </div>
 
-                <div style={{ color: '#9ca3af', fontSize: 12 }}>{fmt(lead.firstContact)}</div>
-                <div style={{ color: '#9ca3af', fontSize: 12 }}>{fmt(lead.lastContact)}</div>
-
-                <div style={{ textAlign: 'center' }}>
-                  <span style={{
-                    background: 'rgba(92,228,109,0.12)',
-                    border: '1px solid rgba(92,228,109,0.3)',
-                    color: NEON,
-                    borderRadius: 20, padding: '3px 12px',
-                    fontSize: 12, fontWeight: 600,
-                    boxShadow: '0 0 8px rgba(92,228,109,0.1)',
-                  }}>
-                    {lead.messageCount}
-                  </span>
-                </div>
+                <div style={{ color: '#9ca3af', fontSize: 12 }}>{lead.date}</div>
+                <div style={{ color: '#9ca3af', fontSize: 12 }}>{lead.time}</div>
               </div>
             ))}
           </div>

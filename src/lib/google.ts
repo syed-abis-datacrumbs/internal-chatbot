@@ -335,3 +335,108 @@ export async function updateSheetStatus(rowIndex: number, status: string): Promi
     requestBody: { values: [[status]] },
   });
 }
+
+// ── Sheet reads — dashboard pages read directly from the Sheet (the sheet is
+// the reviewed, editable source of truth for Leads/Discounts/Demo/Enrollments;
+// only Chats reflects MongoDB directly). ──────────────────────────────────
+
+export interface SheetLead { name: string; phone: string; date: string; time: string }
+
+export async function getLeadsFromSheet(): Promise<SheetLead[]> {
+  const sheets = google.sheets({ version: 'v4', auth: auth() });
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEET_ID,
+    range: `${LEADS_TAB}!A2:D`,
+  });
+  const rows = res.data.values ?? [];
+  return rows
+    .filter(r => r[1])
+    .map(r => ({
+      name: r[0] ?? '',
+      phone: String(r[1] ?? '').replace(/^\+/, ''),
+      date: r[2] ?? '',
+      time: r[3] ?? '',
+    }));
+}
+
+export interface SheetDiscountRequest {
+  name: string; email: string; phone: string; message: string; submitted: string; comment: string;
+}
+
+export async function getDiscountRequestsFromSheet(): Promise<SheetDiscountRequest[]> {
+  const sheets = google.sheets({ version: 'v4', auth: auth() });
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEET_ID,
+    range: `${DISCOUNT_TAB}!A2:F`,
+  });
+  const rows = res.data.values ?? [];
+  return rows
+    .filter(r => r[2])
+    .map(r => ({
+      name: r[0] ?? '',
+      email: r[1] ?? '',
+      phone: String(r[2] ?? '').replace(/^\+/, ''),
+      message: r[3] ?? '',
+      submitted: r[4] ?? '',
+      comment: r[5] ?? '',
+    }));
+}
+
+export interface SheetDemoRequest {
+  name: string; email: string; phone: string; message: string; submitted: string;
+}
+
+export async function getDemoRequestsFromSheet(): Promise<SheetDemoRequest[]> {
+  const sheets = google.sheets({ version: 'v4', auth: auth() });
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEET_ID,
+    range: `${DEMO_TAB}!A2:E`,
+  });
+  const rows = res.data.values ?? [];
+  return rows
+    .filter(r => r[2])
+    .map(r => ({
+      name: r[0] ?? '',
+      email: r[1] ?? '',
+      phone: String(r[2] ?? '').replace(/^\+/, ''),
+      message: r[3] ?? '',
+      submitted: r[4] ?? '',
+    }));
+}
+
+export interface SheetEnrollment {
+  rowIndex: number; name: string; email: string; phone: string;
+  submitted: string; driveLink: string; status: string;
+}
+
+export async function getEnrollmentsFromSheet(): Promise<SheetEnrollment[]> {
+  const sheets = google.sheets({ version: 'v4', auth: auth() });
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEET_ID,
+    range: `${SHEET_TAB}!A2:F`,
+  });
+  const rows = res.data.values ?? [];
+  return rows
+    .map((r, i) => ({
+      rowIndex: i + 2,
+      name: r[0] ?? '',
+      email: r[1] ?? '',
+      phone: String(r[2] ?? '').replace(/^\+/, ''),
+      submitted: r[3] ?? '',
+      driveLink: r[4] ?? '',
+      status: r[5] || 'Pending',
+    }))
+    .filter(e => e.phone);
+}
+
+// Counts for the sidebar nav badges — Leads/Enrollments reflect the sheet, not MongoDB
+export async function getSheetNavCounts(): Promise<{ leads: number; enrollments: number }> {
+  const sheets = google.sheets({ version: 'v4', auth: auth() });
+  const [leadsRes, enrollRes] = await Promise.all([
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${LEADS_TAB}!B2:B` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${SHEET_TAB}!C2:C` }),
+  ]);
+  const leads       = (leadsRes.data.values ?? []).filter(r => r[0]).length;
+  const enrollments = (enrollRes.data.values ?? []).filter(r => r[0]).length;
+  return { leads, enrollments };
+}
