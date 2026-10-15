@@ -55,8 +55,9 @@ export function wantsDemo(text: string): boolean {
   return /\bdemo\b/i.test(lower) && /\b(class|session|lecture|lesson)\b/i.test(lower);
 }
 
-function apiUrl(path: string) {
-  return `https://graph.facebook.com/v25.0/${process.env.PHONE_NUMBER_ID}${path}`;
+function apiUrl(path: string, fromPhoneNumberId?: string) {
+  const phoneId = fromPhoneNumberId || process.env.PHONE_NUMBER_ID;
+  return `https://graph.facebook.com/v25.0/${phoneId}${path}`;
 }
 
 function headers() {
@@ -66,9 +67,9 @@ function headers() {
   };
 }
 
-export async function sendWhatsAppMessage(to: string, text: string) {
+export async function sendWhatsAppMessage(to: string, text: string, fromPhoneNumberId?: string) {
   await axios.post(
-    apiUrl('/messages'),
+    apiUrl('/messages', fromPhoneNumberId),
     { messaging_product: 'whatsapp', to, type: 'text', text: { body: text } },
     { headers: headers() }
   );
@@ -93,19 +94,23 @@ export async function downloadWhatsAppMedia(
   return { buffer: Buffer.from(res.data), mimeType: mime_type };
 }
 
-export async function sendWhatsAppDocument(to: string) {
-  // agent.datacrumbs.org/brochure.pdf is confirmed publicly accessible (200 OK, application/pdf, 5.7 MB).
-  // Meta's servers can reach this domain — they already hit our webhook here.
-  const brochureLink = 'https://agent.datacrumbs.org/brochure.pdf';
-  console.log('[brochure] sending link:', brochureLink);
+export async function sendWhatsAppDocument(
+  to: string,
+  docLink?: string,
+  filename?: string,
+  fromPhoneNumberId?: string,
+) {
+  const brochureLink = docLink || 'https://agent.datacrumbs.org/brochure.pdf';
+  const fname = filename || BROCHURE_FILENAME;
+  console.log('[brochure] sending link:', brochureLink, 'from phone:', fromPhoneNumberId || process.env.PHONE_NUMBER_ID);
   try {
     await axios.post(
-      apiUrl('/messages'),
+      apiUrl('/messages', fromPhoneNumberId),
       {
         messaging_product: 'whatsapp',
         to,
         type: 'document',
-        document: { link: brochureLink, filename: BROCHURE_FILENAME },
+        document: { link: brochureLink, filename: fname },
       },
       { headers: headers() }
     );

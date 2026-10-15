@@ -7,6 +7,7 @@ import {
 } from '@/lib/whatsapp';
 import { getAIReply } from '@/lib/gemini';
 import { CORE_SYSTEM_PROMPT, WELCOME_GREETING } from '@/lib/knowledge';
+import { getAgentByPhoneId, type AgentConfig } from '@/lib/agents';
 import {
   saveMessage, getRecentMessagesByPhone, hasPriorMessages, claimNewLead,
   getActiveEnrollmentSession, saveEnrollmentSession,
@@ -36,19 +37,28 @@ export async function GET(req: NextRequest) {
 }
 
 // ── Payment details ───────────────────────────────────────────────────────────
-function buildPaymentMsg() {
+function buildPaymentMsg(agent?: AgentConfig) {
+  const p = agent?.paymentDetails;
+  const bankName = p?.bankName || process.env.PAYMENT_BANK_NAME || 'HabibMetro Bank';
+  const bankTitle = p?.accountTitle || process.env.PAYMENT_BANK_TITLE || 'Data Crumbs';
+  const iban = p?.iban || process.env.PAYMENT_BANK_IBAN || 'PK61 MPBL 0165 0271 4028 0184';
+  const account = p?.accountNumber || process.env.PAYMENT_BANK_ACCOUNT || '6016520311714280184';
+  const walletTitle = p?.walletTitle || process.env.PAYMENT_WALLET_TITLE || 'Abis Hussain Syed';
+  const walletNum = p?.walletNumber || process.env.PAYMENT_WALLET_NUMBER || '0336-2507273';
+  const fee = p?.fee || process.env.PAYMENT_FEE || 'Rs. 7,499/month';
+
   return `Please complete the payment using any of these methods:
 
-🏦 *${process.env.PAYMENT_BANK_NAME}*
-Account Title: ${process.env.PAYMENT_BANK_TITLE}
-IBAN: ${process.env.PAYMENT_BANK_IBAN}
-Account Number: ${process.env.PAYMENT_BANK_ACCOUNT}
+🏦 *${bankName}*
+Account Title: ${bankTitle}
+IBAN: ${iban}
+Account Number: ${account}
 
 📱 *Easypaisa / Jazzcash / NayaPay*
-Account Title: ${process.env.PAYMENT_WALLET_TITLE}
-Account Number: ${process.env.PAYMENT_WALLET_NUMBER}
+Account Title: ${walletTitle}
+Account Number: ${walletNum}
 
-Fee: *${process.env.PAYMENT_FEE ?? 'Rs. 7,499/month'}*
+Fee: *${fee}*
 
 Once you've paid, please send a *screenshot* here and we'll verify it and get you enrolled! ✅`;
 }
@@ -58,7 +68,7 @@ Once you've paid, please send a *screenshot* here and we'll verify it and get yo
 const EMAIL_RE = /[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+/;
 
 // Strip common preamble phrases so "My name is John" → "John"
-function cleanName(raw: string): string {
+export function cleanName(raw: string): string {
   return raw
     .replace(/\b(my name is|i am|i'm|name is|call me|and my email is|and email is|my email is|email address is|email id is|email is|email:)\b/gi, '')
     .replace(/@\S*/g, '')   // remove stray @fragments
@@ -71,7 +81,7 @@ function cleanName(raw: string): string {
     .trim();
 }
 
-function looksLikeName(text: string): boolean {
+export function looksLikeName(text: string): boolean {
   const t = text.trim();
   if (!t || t.length < 2 || t.length > 40) return false;
   // Reject if contains any numbers, punctuation, or question marks
@@ -85,7 +95,7 @@ function looksLikeName(text: string): boolean {
   return !NON_NAME_WORDS.test(t);
 }
 
-function extractEmailAndName(text: string): { email: string | null; name: string | null } {
+export function extractEmailAndName(text: string): { email: string | null; name: string | null } {
   const emailMatch = text.match(EMAIL_RE);
   const email = emailMatch ? emailMatch[0].toLowerCase() : null;
   const nameCandidate = cleanName(text.replace(EMAIL_RE, ''));
@@ -94,7 +104,7 @@ function extractEmailAndName(text: string): { email: string | null; name: string
 }
 
 // Extract explicit name introduced in conversation ("my name is Syed Abis", "I am Syed Abis")
-function extractExplicitNameFromText(text: string): string | null {
+export function extractExplicitNameFromText(text: string): string | null {
   if (!text || text.length > 100) return null;
   const match = text.match(/\b(?:my name is|i am|i'm|call me|name is)\s+([A-Za-z\s]{2,35})/i);
   if (match) {
@@ -251,7 +261,7 @@ function isPureGreeting(text: string): boolean {
 }
 
 // True if the message looks like a question the AI should answer
-function isQuestion(text: string): boolean {
+export function isQuestion(text: string): boolean {
   if (text.trim().endsWith('?')) return true;
   const questionWords = /\b(what|how|when|where|why|tell|is|are|do|can|could|would|please|about|kya|kab|kaisa|bata|mujhe|fee|timing|course|duration|internship)\b/i;
   return questionWords.test(text);
@@ -286,13 +296,19 @@ async function syncLeadNameIfNew(phone: string, priorName: string | null | undef
   }
 }
 
-// Every first-ever message from a brand-new contact gets the brochure attached,
+// Every first-ever message from a brand-new contact gets the brochure attached (if configured),
 // regardless of content — greeting, question, whatever. This is the one chance
 // to hand over the full info packet before they've seen anything else from us.
-async function attachBrochureIfFirstContact(hadPriorMessages: boolean, from: string): Promise<boolean> {
+async function attachBrochureIfFirstContact(
+  hadPriorMessages: boolean,
+  from: string,
+  agent?: AgentConfig,
+  phoneId?: string,
+): Promise<boolean> {
   if (hadPriorMessages) return false;
+  if (!agent?.brochureUrl) return false;
   try {
-    await sendWhatsAppDocument(from);
+    await sendWhatsAppDocument(from, agent.brochureUrl, agent.brochureFilename, phoneId);
     return true;
   } catch (err) {
     console.error('Failed to send brochure on first contact:', err instanceof Error ? err.message : err);
@@ -318,6 +334,7 @@ async function runEnrollmentMachine(
   history: GeminiHistory = [],
   explicitName?: string,
   priorContactName?: string | null,
+  agent?: AgentConfig,
 ): Promise<{ reply: string; mediaUrl?: string }> {
   let reply = '';
   let mediaUrl: string | undefined;
@@ -330,7 +347,8 @@ async function runEnrollmentMachine(
   }
 
   // Prevent Gemini from adding its own enrollment nudge or assuming payment queries on pure greetings
-  const enrollmentSystemPrompt = `${CORE_SYSTEM_PROMPT}\n\nIMPORTANT INSTRUCTIONS FOR IN-PROGRESS ENROLLMENT:
+  const basePrompt = agent?.systemPrompt || CORE_SYSTEM_PROMPT;
+  const enrollmentSystemPrompt = `${basePrompt}\n\nIMPORTANT INSTRUCTIONS FOR IN-PROGRESS ENROLLMENT:
 - If the user sends a simple greeting (e.g. "hi", "hello", "salam", "hey", "hi there"), greet them back naturally and ask how you can assist them today. Do NOT mention payment verification or enrollment status unless they explicitly ask about payment or receipt status.
 - If the user asks a general question (curriculum, python, duration, timings, fee), answer their question directly and concisely.
 - Do NOT append redundant reminders asking for name, email, or payment screenshots unless requested.`;
@@ -366,7 +384,7 @@ async function runEnrollmentMachine(
         session.name  = nameOnly;
         session.state = 'awaiting_screenshot';
         await syncLeadNameIfNew(from, priorContactName, session.name);
-        reply = `Perfect, *${session.name}*! 🎉\n\n${buildPaymentMsg()}`;
+        reply = `Perfect, *${session.name}*! 🎉\n\n${buildPaymentMsg(agent)}`;
         break;
       }
 
@@ -383,7 +401,7 @@ async function runEnrollmentMachine(
           session.email = email;
           session.state = 'awaiting_screenshot';
           await syncLeadNameIfNew(from, priorContactName, session.name);
-          reply = `Perfect, *${session.name}*! 🎉\n\n${buildPaymentMsg()}`;
+          reply = `Perfect, *${session.name}*! 🎉\n\n${buildPaymentMsg(agent)}`;
         }
       } else if (email && !name) {
         session.email = email;
@@ -438,7 +456,7 @@ async function runEnrollmentMachine(
       }
       session.email = email;
       session.state = 'awaiting_screenshot';
-      reply = `Perfect, *${session.name}*! 🎉\n\n${buildPaymentMsg()}`;
+      reply = `Perfect, *${session.name}*! 🎉\n\n${buildPaymentMsg(agent)}`;
       break;
     }
 
@@ -492,10 +510,10 @@ async function runEnrollmentMachine(
             reply = aiReply;
           }
         } else {
-          reply = `Please send a *screenshot* of your payment to proceed.\n\n${buildPaymentMsg()}`;
+          reply = `Please send a *screenshot* of your payment to proceed.\n\n${buildPaymentMsg(agent)}`;
         }
       } else {
-        reply = `Please send a *screenshot* of your payment to proceed.\n\n${buildPaymentMsg()}`;
+        reply = `Please send a *screenshot* of your payment to proceed.\n\n${buildPaymentMsg(agent)}`;
       }
       break;
     }
@@ -566,6 +584,8 @@ export async function POST(req: NextRequest) {
   after(async () => {
     try {
       const value = body?.entry?.[0]?.changes?.[0]?.value;
+      const receivingPhoneId = value?.metadata?.phone_number_id as string | undefined;
+      const agent = getAgentByPhoneId(receivingPhoneId);
       const message = value?.messages?.[0];
       if (!message) return;
 
@@ -575,6 +595,14 @@ export async function POST(req: NextRequest) {
       // Accept any document as a potential payment screenshot — don't restrict by MIME/filename
       const imageId   = message.image?.id ?? message.document?.id;
       const imageMime = message.image?.mime_type ?? message.document?.mime_type ?? 'image/jpeg';
+
+      // Multi-number dynamic sender & storage functions
+      const sendWhatsAppMessageCurrent = (to: string, msgText: string) =>
+        sendWhatsAppMessage(to, msgText, receivingPhoneId);
+      const sendWhatsAppDocumentCurrent = (to: string) =>
+        sendWhatsAppDocument(to, agent.brochureUrl, agent.brochureFilename, receivingPhoneId);
+      const saveMessageCurrent = (msg: { from: string; text: string; reply: string; timestamp: number; mediaUrl?: string; mediaType?: 'image' | 'document' }) =>
+        saveMessage({ ...msg, agentId: agent.id, receivingPhoneId });
 
       const [session, contactProfile, hadPriorMessages] = await Promise.all([
         getActiveEnrollmentSession(from),
@@ -598,7 +626,7 @@ export async function POST(req: NextRequest) {
       // This guarantees at most one row per phone no matter what: demo/discount/
       // enrollment requests from a RETURNING contact are still fully handled below,
       // they just never touch the leads sheet again since their number is already on file.
-      if (await claimNewLead(from)) {
+      if (process.env.ENABLE_GOOGLE_SHEETS === 'true' && (await claimNewLead(from))) {
         try {
           await appendLeadRow({ name: explicitName ?? null, phone: from, timestamp: Date.now() });
         } catch (err) {
@@ -609,7 +637,7 @@ export async function POST(req: NextRequest) {
       // ── 0. Bot toggle ────────────────────────────────────────────────────
       if (contactProfile?.botDisabled) {
         if (msgType === 'text' && text) {
-          await saveMessage({ from, text, reply: '', timestamp: Date.now() });
+          await saveMessageCurrent({ from, text, reply: '', timestamp: Date.now() });
         }
         return;
       }
@@ -621,13 +649,13 @@ export async function POST(req: NextRequest) {
         const reply = hadPriorMessages ? brochureBlurb : `${WELCOME_GREETING}\n\n${brochureBlurb}`;
         let sentDoc = false;
         try {
-          await sendWhatsAppDocument(from);
+          await sendWhatsAppDocumentCurrent(from);
           sentDoc = true;
         } catch (err) {
           console.error('Failed to send brochure document:', err instanceof Error ? err.message : err);
         }
-        await sendWhatsAppMessage(from, reply);
-        await saveMessage({ from, text, reply, timestamp: Date.now(), ...(sentDoc ? { mediaType: 'document' as const } : {}) });
+        await sendWhatsAppMessageCurrent(from, reply);
+        await saveMessageCurrent({ from, text, reply, timestamp: Date.now(), ...(sentDoc ? { mediaType: 'document' as const } : {}) });
         return;
       }
 
@@ -664,8 +692,8 @@ export async function POST(req: NextRequest) {
           offerReply = `Our management reviews each request individually and may be able to offer you a special discount. 😊\n\nWould you like me to forward your request to them? (yes/no)`;
         }
 
-        await sendWhatsAppMessage(from, offerReply);
-        await saveMessage({ from, text, reply: offerReply, timestamp: Date.now() });
+        await sendWhatsAppMessageCurrent(from, offerReply);
+        await saveMessageCurrent({ from, text, reply: offerReply, timestamp: Date.now() });
         return;
       }
 
@@ -709,8 +737,8 @@ export async function POST(req: NextRequest) {
           discountReply = `Please share your *full name* and *email address* so we can forward your request to the management team.\n\nExample: _John Doe, johndoe@gmail.com_`;
         }
 
-        await sendWhatsAppMessage(from, discountReply);
-        await saveMessage({ from, text, reply: discountReply, timestamp: Date.now() });
+        await sendWhatsAppMessageCurrent(from, discountReply);
+        await saveMessageCurrent({ from, text, reply: discountReply, timestamp: Date.now() });
         return;
       }
 
@@ -753,16 +781,16 @@ export async function POST(req: NextRequest) {
           demoReply = `Please share your *full name* and *email address* so I can share this with our management team.\n\nExample: _John Doe, johndoe@gmail.com_`;
         }
 
-        await sendWhatsAppMessage(from, demoReply);
-        await saveMessage({ from, text, reply: demoReply, timestamp: Date.now() });
+        await sendWhatsAppMessageCurrent(from, demoReply);
+        await saveMessageCurrent({ from, text, reply: demoReply, timestamp: Date.now() });
         return;
       }
 
       // ── 0d. B2B / vendor pitch — decline politely, never route into student flows ──
       if (msgType === 'text' && isBusinessPitch(text)) {
         const pitchReply = `Thank you for reaching out! 🙏\n\nWe're a student-focused training platform and don't take vendor or partnership meetings through this channel.\n\nFor business enquiries, please email *info@datacrumbs.org*.`;
-        await sendWhatsAppMessage(from, pitchReply);
-        await saveMessage({ from, text, reply: pitchReply, timestamp: Date.now() });
+        await sendWhatsAppMessageCurrent(from, pitchReply);
+        await saveMessageCurrent({ from, text, reply: pitchReply, timestamp: Date.now() });
         return;
       }
 
@@ -797,8 +825,8 @@ export async function POST(req: NextRequest) {
             console.error('Failed to update discount comment:', err instanceof Error ? err.message : err);
           }
           const followUpReply = `Got it${existingName ? `, *${existingName}*` : ''}! I've passed along your update to our management team. They'll follow up with you soon. 😊`;
-          await sendWhatsAppMessage(from, followUpReply);
-          await saveMessage({ from, text, reply: followUpReply, timestamp: Date.now() });
+          await sendWhatsAppMessageCurrent(from, followUpReply);
+          await saveMessageCurrent({ from, text, reply: followUpReply, timestamp: Date.now() });
           return;
         }
 
@@ -812,7 +840,7 @@ export async function POST(req: NextRequest) {
           ...(existingName ? { discountCollectedName: existingName } : {}),
         });
         const sentDoc = await attachBrochureIfFirstContact(hadPriorMessages, from);
-        await sendWhatsAppMessage(from, discountReply);
+        await sendWhatsAppMessageCurrent(from, discountReply);
         await saveMessage({
           from, text, reply: discountReply, timestamp: Date.now(),
           ...(sentDoc ? { mediaType: 'document' as const } : {}),
@@ -829,8 +857,8 @@ export async function POST(req: NextRequest) {
         // Already have a demo request on file — don't re-collect, just reassure
         if (contactProfile?.hasSubmittedDemoRequest) {
           const alreadyReply = `You're all set${existingName ? `, *${existingName}*` : ''}! We've already shared your demo class request with our management team — they'll reach out to you soon. 😊`;
-          await sendWhatsAppMessage(from, alreadyReply);
-          await saveMessage({ from, text, reply: alreadyReply, timestamp: Date.now() });
+          await sendWhatsAppMessageCurrent(from, alreadyReply);
+          await saveMessageCurrent({ from, text, reply: alreadyReply, timestamp: Date.now() });
           return;
         }
 
@@ -845,7 +873,7 @@ export async function POST(req: NextRequest) {
           ...(existingName ? { demoCollectedName: existingName } : {}),
         });
         const sentDoc2 = await attachBrochureIfFirstContact(hadPriorMessages, from);
-        await sendWhatsAppMessage(from, demoReply);
+        await sendWhatsAppMessageCurrent(from, demoReply);
         await saveMessage({
           from, text, reply: demoReply, timestamp: Date.now(),
           ...(sentDoc2 ? { mediaType: 'document' as const } : {}),
@@ -871,8 +899,8 @@ export async function POST(req: NextRequest) {
           closerReply = `You're welcome${existingName ? `, *${existingName}*` : ''}! 😊 Feel free to reach out anytime you have more questions.`;
         }
         await saveContactProfile({ phone: from, lastReplyWasClosing: true });
-        await sendWhatsAppMessage(from, closerReply);
-        await saveMessage({ from, text, reply: closerReply, timestamp: Date.now() });
+        await sendWhatsAppMessageCurrent(from, closerReply);
+        await saveMessageCurrent({ from, text, reply: closerReply, timestamp: Date.now() });
         return;
       }
 
@@ -884,11 +912,11 @@ export async function POST(req: NextRequest) {
         ]);
 
         const { reply, mediaUrl } = await runEnrollmentMachine(
-          from, session, msgType, text, imageId, imageMime, history, explicitName, contactProfile?.name,
+          from, session, msgType, text, imageId, imageMime, history, explicitName, contactProfile?.name, agent,
         );
-        await sendWhatsAppMessage(from, reply);
+        await sendWhatsAppMessageCurrent(from, reply);
         const isMediaMsg = msgType === 'image' || msgType === 'document';
-        await saveMessage({
+        await saveMessageCurrent({
           from,
           text: isMediaMsg ? '[image]' : text,
           reply,
@@ -911,10 +939,10 @@ export async function POST(req: NextRequest) {
               console.error('Drive upload failed (non-enrollment):', err instanceof Error ? err.message : err);
             }
           }
-          await attachBrochureIfFirstContact(hadPriorMessages, from);
+          await attachBrochureIfFirstContact(hadPriorMessages, from, agent, receivingPhoneId);
           const imgReply = 'Please type your question in text 😊';
-          await sendWhatsAppMessage(from, imgReply);
-          await saveMessage({
+          await sendWhatsAppMessageCurrent(from, imgReply);
+          await saveMessageCurrent({
             from, text: '[image]', reply: imgReply, timestamp: Date.now(),
             mediaType: 'image',
             ...(mediaUrl ? { mediaUrl } : {}),
@@ -938,9 +966,9 @@ export async function POST(req: NextRequest) {
         };
         const reply = `Great! I'll get you enrolled in the *4-Month AI & Data Science Bootcamp* 🎓\n\nPlease share your *full name* and *email address* together so we can get started!\n\nExample: _John Doe, johndoe@gmail.com_`;
         await saveEnrollmentSession(newSession);
-        const sentDoc = await attachBrochureIfFirstContact(hadPriorMessages, from);
-        await sendWhatsAppMessage(from, reply);
-        await saveMessage({
+        const sentDoc = await attachBrochureIfFirstContact(hadPriorMessages, from, agent, receivingPhoneId);
+        await sendWhatsAppMessageCurrent(from, reply);
+        await saveMessageCurrent({
           from, text, reply, timestamp: Date.now(),
           ...(sentDoc ? { mediaType: 'document' as const } : {}),
         });
@@ -953,14 +981,14 @@ export async function POST(req: NextRequest) {
       if (!hadPriorMessages && isPureGreeting(text)) {
         let sentDoc = false;
         try {
-          await sendWhatsAppDocument(from);
+          await sendWhatsAppDocumentCurrent(from);
           sentDoc = true;
         } catch (err) {
           console.error('Failed to send brochure on first greeting:', err instanceof Error ? err.message : err);
         }
-        await sendWhatsAppMessage(from, WELCOME_GREETING);
-        await saveMessage({
-          from, text, reply: WELCOME_GREETING, timestamp: Date.now(),
+        await sendWhatsAppMessageCurrent(from, agent.welcomeGreeting);
+        await saveMessageCurrent({
+          from, text, reply: agent.welcomeGreeting, timestamp: Date.now(),
           ...(sentDoc ? { mediaType: 'document' as const } : {}),
         });
         return;
@@ -977,12 +1005,12 @@ export async function POST(req: NextRequest) {
         ...(m.reply                         ? [{ role: 'model' as const, parts: [{ text: m.reply }] }] : []),
       ]);
 
-      let reply = await getAIReply(text, history);
+      let reply = await getAIReply(text, history, agent.systemPrompt);
 
       // Every first-ever message gets the brochure, whatever it says — greeting,
       // direct question, anything. Catches any first message that reaches this
       // normal-flow path (didn't match the pure-greeting or brochure-keyword shortcuts).
-      const sentDocWithReply = await attachBrochureIfFirstContact(hadPriorMessages, from);
+      const sentDocWithReply = await attachBrochureIfFirstContact(hadPriorMessages, from, agent, receivingPhoneId);
 
       if (contactProfile?.lastReplyWasClosing) {
         await saveContactProfile({ phone: from, lastReplyWasClosing: false });
@@ -1017,8 +1045,8 @@ export async function POST(req: NextRequest) {
             console.error('Failed to update discount comment:', err instanceof Error ? err.message : err);
           }
           reply = `Got it${existingName ? `, *${existingName}*` : ''}! I've passed along your update to our management team. They'll follow up with you soon. 😊`;
-          await sendWhatsAppMessage(from, reply);
-          await saveMessage({ from, text, reply, timestamp: Date.now() });
+          await sendWhatsAppMessageCurrent(from, reply);
+          await saveMessageCurrent({ from, text, reply, timestamp: Date.now() });
           return;
         }
 
@@ -1032,8 +1060,8 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      await sendWhatsAppMessage(from, reply);
-      await saveMessage({
+      await sendWhatsAppMessageCurrent(from, reply);
+      await saveMessageCurrent({
         from, text, reply, timestamp: Date.now(),
         ...(sentDocWithReply ? { mediaType: 'document' as const } : {}),
       });

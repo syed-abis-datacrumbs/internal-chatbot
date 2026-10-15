@@ -29,53 +29,53 @@ const NAV: { href: string; label: string; countKey?: CountKey; icon: React.React
       </svg>
     ),
   },
-  {
-    href: '/leads',
-    label: 'Leads',
-    countKey: 'leads',
-    icon: (
-      <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-      </svg>
-    ),
-  },
-  {
-    href: '/enrollments',
-    label: 'Enrollments',
-    countKey: 'enrollments',
-    icon: (
-      <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    ),
-  },
-  {
-    href: '/discounts',
-    label: 'Discounts',
-    icon: (
-      <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M17 17h.01M9 19l10-16M7 9a2 2 0 100-4 2 2 0 000 4zm10 10a2 2 0 100-4 2 2 0 000 4z" />
-      </svg>
-    ),
-  },
-  {
-    href: '/demo',
-    label: 'Demo Requests',
-    icon: (
-      <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.55-2.55a1 1 0 011.45.9v7.3a1 1 0 01-1.45.9L15 14M5 6h9a1 1 0 011 1v10a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1z" />
-      </svg>
-    ),
-  },
-  {
-    href: '/config',
-    label: 'Configuration',
-    icon: (
-      <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-      </svg>
-    ),
-  },
+  // {
+  //   href: '/leads',
+  //   label: 'Leads',
+  //   countKey: 'leads',
+  //   icon: (
+  //     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  //       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+  //     </svg>
+  //   ),
+  // },
+  // {
+  //   href: '/enrollments',
+  //   label: 'Enrollments',
+  //   countKey: 'enrollments',
+  //   icon: (
+  //     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  //       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+  //     </svg>
+  //   ),
+  // },
+  // {
+  //   href: '/discounts',
+  //   label: 'Discounts',
+  //   icon: (
+  //     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  //       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M17 17h.01M9 19l10-16M7 9a2 2 0 100-4 2 2 0 000 4zm10 10a2 2 0 100-4 2 2 0 000 4z" />
+  //     </svg>
+  //   ),
+  // },
+  // {
+  //   href: '/demo',
+  //   label: 'Demo Requests',
+  //   icon: (
+  //     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  //       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.55-2.55a1 1 0 011.45.9v7.3a1 1 0 01-1.45.9L15 14M5 6h9a1 1 0 011 1v10a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1z" />
+  //     </svg>
+  //   ),
+  // },
+  // {
+  //   href: '/config',
+  //   label: 'Configuration',
+  //   icon: (
+  //     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  //       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+  //     </svg>
+  //   ),
+  // },
 ];
 
 export default function Sidebar() {
@@ -84,19 +84,8 @@ export default function Sidebar() {
   const [logoutHov, setLogoutHov] = useState(false);
   const [counts, setCounts] = useState<Record<CountKey, number> | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    const fetchCounts = async () => {
-      try {
-        const res  = await fetch('/api/stats/nav-counts');
-        const data = await res.json();
-        if (!cancelled) setCounts(data);
-      } catch { /* ignore — badges just stay hidden */ }
-    };
-    fetchCounts();
-    const poll = setInterval(fetchCounts, 15000);
-    return () => { cancelled = true; clearInterval(poll); };
-  }, []);
+  // Nav counts polling disabled as unused tabs are hidden
+  // useEffect(() => { ... }, []);
 
   async function logout() {
     await fetch('/api/auth/logout', { method: 'POST' });
