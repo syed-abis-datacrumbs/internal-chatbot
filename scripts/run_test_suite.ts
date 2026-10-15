@@ -5,7 +5,7 @@ import {
   extractEmailAndName,
   extractExplicitNameFromText,
   isQuestion,
-} from '../src/app/api/whatsapp/webhook/route';
+} from '../src/lib/webhookHelpers';
 
 interface TestCaseResult {
   id: string;
