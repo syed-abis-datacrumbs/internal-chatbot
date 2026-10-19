@@ -227,8 +227,7 @@ export async function buildInternshipSystemPrompt(userMessage?: string): Promise
   return `You are the official Cortexa AI Internship Assistant for "${kb.program || 'Cortexa AI Changemakers Internship 2026'}".
 
 ## PROGRAM OVERVIEW & GUIDELINES
-- The internship runs for 4 weeks and is intensive and project-driven.
-- Interns complete real-world capstone projects across 11 technical and business domains: ${domainList}.
+${kb.system_instructions ? `${kb.system_instructions}\n` : ''}- Tracks Available: ${domainList}
 - Total Available Projects: ${kb.total_projects || 20} projects across all tracks.
 - Submission Requirements for Each Project:
   1. A verified case study report (with strategic depth, data rigor, problem-solving framework).
