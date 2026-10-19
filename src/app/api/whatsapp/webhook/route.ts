@@ -554,10 +554,20 @@ export async function POST(req: NextRequest) {
     const imageMime = message.image?.mime_type ?? message.document?.mime_type ?? 'image/jpeg';
 
     // Multi-number dynamic sender & storage functions
-    const sendWhatsAppMessageCurrent = (to: string, msgText: string) =>
-      sendWhatsAppMessage(to, msgText, receivingPhoneId);
-    const sendWhatsAppDocumentCurrent = (to: string) =>
-      sendWhatsAppDocument(to, agent.brochureUrl, agent.brochureFilename, receivingPhoneId);
+    const sendWhatsAppMessageCurrent = async (to: string, msgText: string) => {
+      try {
+        await sendWhatsAppMessage(to, msgText, receivingPhoneId);
+      } catch (err) {
+        console.error('[whatsapp] send message failed:', err instanceof Error ? err.message : err);
+      }
+    };
+    const sendWhatsAppDocumentCurrent = async (to: string) => {
+      try {
+        await sendWhatsAppDocument(to, agent.brochureUrl, agent.brochureFilename, receivingPhoneId);
+      } catch (err) {
+        console.error('[whatsapp] send document failed:', err instanceof Error ? err.message : err);
+      }
+    };
     const saveMessageCurrent = (msg: { from: string; text: string; reply: string; timestamp: number; mediaUrl?: string; mediaType?: 'image' | 'document' }) =>
       saveMessage({ ...msg, agentId: agent.id, receivingPhoneId });
 
