@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { after } from 'next/server';
 import {
   wantsBrochure, wantsEnrollment, wantsDemo,
   sendWhatsAppMessage, sendWhatsAppDocument,
@@ -535,13 +534,14 @@ async function runEnrollmentMachine(
 export async function POST(req: NextRequest) {
   const body = await req.json();
 
-  after(async () => {
-    try {
-      const value = body?.entry?.[0]?.changes?.[0]?.value;
-      const receivingPhoneId = value?.metadata?.phone_number_id as string | undefined;
-      const agent = getAgentByPhoneId(receivingPhoneId);
-      const message = value?.messages?.[0];
-      if (!message) return;
+  // Run processing inline (not inside after()) so it completes reliably
+  // even when the request is forwarded from another server.
+  try {
+    const value = body?.entry?.[0]?.changes?.[0]?.value;
+    const receivingPhoneId = value?.metadata?.phone_number_id as string | undefined;
+    const agent = getAgentByPhoneId(receivingPhoneId);
+    const message = value?.messages?.[0];
+    if (!message) return NextResponse.json({}, { status: 200 });
 
       const from      = message.from as string;
       const msgType   = message.type as string;
@@ -1023,7 +1023,6 @@ export async function POST(req: NextRequest) {
     } catch (err: unknown) {
       console.error('Webhook error:', err instanceof Error ? err.message : err);
     }
-  });
 
   return NextResponse.json({}, { status: 200 });
 }
