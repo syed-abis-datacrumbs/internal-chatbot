@@ -18,16 +18,18 @@ export async function getAIReply(
   try {
     // 1. Check if admin saved a custom prompt in the Admin Panel (stored in MongoDB)
     const savedPrompt = await getSystemPrompt();
-    const effectiveBase = savedPrompt || systemPromptOverride;
 
-    if (effectiveBase) {
-      systemInstruction = await buildInternshipSystemPrompt(userMessage, effectiveBase);
+    if (savedPrompt && savedPrompt.trim()) {
+      // Admin custom prompt has 100% priority and pure control
+      systemInstruction = savedPrompt.trim();
+    } else if (systemPromptOverride && systemPromptOverride.trim()) {
+      systemInstruction = await buildInternshipSystemPrompt(userMessage, systemPromptOverride);
     } else {
       systemInstruction = await buildInternshipSystemPrompt(userMessage);
     }
   } catch (err) {
-    console.warn('[gemini] Failed to build dynamic prompt:', err);
-    systemInstruction = systemPromptOverride || `You are the official Cortexa AI Internship Assistant. The internship runs for 4 weeks with projects across 11 tracks.`;
+    console.warn('[gemini] Failed to build prompt:', err);
+    systemInstruction = systemPromptOverride || `You are the official DataCrumbs Assistant.`;
   }
 
   const model = genAI.getGenerativeModel({

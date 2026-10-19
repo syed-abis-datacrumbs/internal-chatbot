@@ -13,6 +13,7 @@ import {
   getContactProfile, saveContactProfile,
   saveDiscountRequest, updateDiscountRequestComment,
   saveDemoRequest,
+  getSystemPrompt,
   type EnrollmentSession,
 } from '@/lib/redis';
 import {
@@ -913,8 +914,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({}, { status: 200 });
     }
 
+    const customPromptActive = !!(await getSystemPrompt());
+
     // ── 4. Enrollment / Application intent ──────────────────────────────────────────────
-    if (wantsEnrollment(text)) {
+    if (!customPromptActive && wantsEnrollment(text)) {
       const reply = `Awesome! We'd love to have you join the *Cortexa AI Changemakers Internship 2026*! 🚀\n\nYou can register directly and select your project track on our official portal:\n🔗 https://internship.datacrumbs.org\n\nIf you have any questions about the 11 tracks or 20 capstone projects, feel free to ask me anytime! 😊`;
       await sendWhatsAppMessageCurrent(from, reply);
       await saveMessageCurrent({
@@ -924,7 +927,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 4b. First-ever pure greeting → send official welcome greeting ──
-    if (!hadPriorMessages && isPureGreeting(text)) {
+    if (!customPromptActive && !hadPriorMessages && isPureGreeting(text)) {
       if (agent.brochureUrl) {
         try {
           await sendWhatsAppDocumentCurrent(from);
@@ -955,7 +958,7 @@ export async function POST(req: NextRequest) {
       reply = await getAIReply(text, history, agent.systemPrompt);
     } catch (aiErr) {
       console.error('[webhook] AI reply error:', aiErr);
-      reply = `Thank you for reaching out! Our team is available to help answer your questions. Feel free to ask about our course details, syllabus, or fee plan (Rs. 7,499/mo), or reach our team directly at *+92 329 2020497*. 😊`;
+      reply = `Thank you for your message! Our team is reviewing it and will respond shortly. You can also contact us at *info@datacrumbs.org*. 😊`;
     }
 
     // Every first-ever message gets the brochure, whatever it says — greeting,
