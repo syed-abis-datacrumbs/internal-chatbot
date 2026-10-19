@@ -9,8 +9,8 @@ export async function POST(req: NextRequest) {
 
     if (wantsBrochure(message)) {
       return NextResponse.json({
-        reply: `Here's our complete bootcamp brochure!\n\n📄 [Download Brochure](/brochure.pdf)\n\nIt covers the full curriculum, pricing (Rs 7,500/month), internship details, and instructor profiles. Let me know if you have any questions!`,
-        brochure: true,
+        reply: `Here is the complete overview of the **Cortexa AI Changemakers Internship 2026**! 🎓\n\n• **Duration:** 4 Weeks (Intensive, Project-Driven)\n• **11 Tracks:** AI, Software Engineering, Cybersecurity, Marketing, HR, Sales, Finance, Operations, Customer Success, Product, Design\n• **20 Capstone Projects:** Hands-on industry case studies with working code, templates, and video walk-throughs.\n\nExplore all tracks and project briefs: [internship.datacrumbs.org](https://internship.datacrumbs.org)`,
+        brochure: false,
       });
     }
 

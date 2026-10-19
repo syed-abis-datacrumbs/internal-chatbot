@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { CORE_SYSTEM_PROMPT } from './knowledge';
+import { buildInternshipSystemPrompt } from './dynamicKnowledge';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
@@ -13,7 +13,17 @@ export async function getAIReply(
   history: HistoryMessage[],
   systemPromptOverride?: string | null
 ): Promise<string> {
-  const systemInstruction = systemPromptOverride ?? CORE_SYSTEM_PROMPT;
+  let systemInstruction: string;
+  try {
+    if (systemPromptOverride && !systemPromptOverride.includes('Cortexa AI Internship Assistant')) {
+      systemInstruction = `${systemPromptOverride}\n\n${await buildInternshipSystemPrompt(userMessage)}`;
+    } else {
+      systemInstruction = await buildInternshipSystemPrompt(userMessage);
+    }
+  } catch (err) {
+    console.warn('[gemini] Failed to build dynamic prompt:', err);
+    systemInstruction = systemPromptOverride || `You are the official Cortexa AI Internship Assistant. The internship runs for 4 weeks with projects across 11 tracks.`;
+  }
 
   const model = genAI.getGenerativeModel({
     model: 'gemini-2.5-flash',
@@ -45,14 +55,14 @@ export async function getAIReply(
   const first = await tryReply(safeHistory);
   if (first !== null) return first;
 
-  // RECITATION — retry with last 2 exchanges only (shorter context reduces exact-match risk)
+  // Retry with last 2 exchanges only if blocked
   console.warn('[gemini] retrying with trimmed history after block');
-  const trimmed = safeHistory.slice(-4); // last 2 user+model pairs
+  const trimmed = safeHistory.slice(-4);
   while (trimmed.length > 0 && trimmed[0].role !== 'user') trimmed.shift();
   const second = await tryReply(trimmed);
   if (second !== null) return second;
 
-  // Both attempts blocked — return a safe fallback
-  console.error('[gemini] both attempts blocked, returning fallback');
-  return `I'm sorry, I wasn't able to process that right now. Please rephrase your question, or reach our team directly at *+92 329 2020497*.`;
+  // Safe fallback if blocked or error
+  console.error('[gemini] both attempts failed, returning fallback');
+  return `I'm sorry, I wasn't able to process that right now. Please rephrase your question or check out our complete 11 tracks and 20 capstone projects at *https://internship.datacrumbs.org*! 🚀`;
 }

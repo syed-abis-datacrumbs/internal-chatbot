@@ -609,20 +609,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({}, { status: 200 });
     }
 
-    // ── 0b. Brochure shortcut — checked before enrollment so ALL users get the PDF ──
+    // ── 0b. Internship overview / syllabus shortcut ──
     if (msgType === 'text' && wantsBrochure(text)) {
-      const brochureBlurb = 'Here is our complete Data Science & AI Bootcamp brochure! It covers the full curriculum, pricing, internship details, and instructor profiles. Let me know if you have any questions 😊';
-      // First-ever message from this contact — lead with the official intro, not just the PDF
-      const reply = hadPriorMessages ? brochureBlurb : `${WELCOME_GREETING}\n\n${brochureBlurb}`;
-      let sentDoc = false;
-      try {
+      const internshipOverview = `Here is the complete overview of the *Cortexa AI Changemakers Internship 2026*! 🎓\n\n• Duration: 4 Weeks (Intensive, Project-Based)\n• 11 Tracks: AI, Software Engineering, Cybersecurity, Marketing, HR, Sales, Finance, Operations, Customer Success, Product, Design\n• 20 Capstone Projects with real industry scenarios\n• Deliverables: Case study report, working GitHub prototype/templates, SOP documentation, and a 3-5 min video walk-through\n\nExplore all tracks and project briefs at: https://internship.datacrumbs.org\n\nLet me know which track you'd like to learn more about! 😊`;
+      const reply = hadPriorMessages ? internshipOverview : `${agent.welcomeGreeting}\n\n${internshipOverview}`;
+      if (agent.brochureUrl) {
         await sendWhatsAppDocumentCurrent(from);
-        sentDoc = true;
-      } catch (err) {
-        console.error('Failed to send brochure document:', err instanceof Error ? err.message : err);
       }
       await sendWhatsAppMessageCurrent(from, reply);
-      await saveMessageCurrent({ from, text, reply, timestamp: Date.now(), ...(sentDoc ? { mediaType: 'document' as const } : {}) });
+      await saveMessageCurrent({ from, text, reply, timestamp: Date.now() });
       return NextResponse.json({}, { status: 200 });
     }
 
@@ -918,45 +913,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({}, { status: 200 });
     }
 
-    // ── 4. Enrollment intent ──────────────────────────────────────────────
+    // ── 4. Enrollment / Application intent ──────────────────────────────────────────────
     if (wantsEnrollment(text)) {
-      const newSession: EnrollmentSession = {
-        phone: from,
-        state: 'collecting_name',
-        name: null,
-        email: null,
-        driveFileId: null,
-        driveFileUrl: null,
-        sheetRowIndex: null,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
-      const reply = `Great! I'll get you enrolled in the *4-Month AI & Data Science Bootcamp* 🎓\n\nPlease share your *full name* and *email address* together so we can get started!\n\nExample: _John Doe, johndoe@gmail.com_`;
-      await saveEnrollmentSession(newSession);
-      const sentDoc = await attachBrochureIfFirstContact(hadPriorMessages, from, agent, receivingPhoneId);
+      const reply = `Awesome! We'd love to have you join the *Cortexa AI Changemakers Internship 2026*! 🚀\n\nYou can register directly and select your project track on our official portal:\n🔗 https://internship.datacrumbs.org\n\nIf you have any questions about the 11 tracks or 20 capstone projects, feel free to ask me anytime! 😊`;
       await sendWhatsAppMessageCurrent(from, reply);
       await saveMessageCurrent({
         from, text, reply, timestamp: Date.now(),
-        ...(sentDoc ? { mediaType: 'document' as const } : {}),
       });
       return NextResponse.json({}, { status: 200 });
     }
 
-    // ── 4b. First-ever pure greeting → send official welcome + brochure together ──
-    // Bypasses Gemini so the greeting text and the brochure attach are guaranteed
-    // to arrive together, deterministically, on this contact's very first message.
+    // ── 4b. First-ever pure greeting → send official welcome greeting ──
     if (!hadPriorMessages && isPureGreeting(text)) {
-      let sentDoc = false;
-      try {
-        await sendWhatsAppDocumentCurrent(from);
-        sentDoc = true;
-      } catch (err) {
-        console.error('Failed to send brochure on first greeting:', err instanceof Error ? err.message : err);
+      if (agent.brochureUrl) {
+        try {
+          await sendWhatsAppDocumentCurrent(from);
+        } catch (err) {
+          console.error('Failed to send brochure on first greeting:', err instanceof Error ? err.message : err);
+        }
       }
       await sendWhatsAppMessageCurrent(from, agent.welcomeGreeting);
       await saveMessageCurrent({
         from, text, reply: agent.welcomeGreeting, timestamp: Date.now(),
-        ...(sentDoc ? { mediaType: 'document' as const } : {}),
       });
       return NextResponse.json({}, { status: 200 });
     }

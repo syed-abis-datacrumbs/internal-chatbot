@@ -19,24 +19,27 @@ export interface AgentConfig {
   };
 }
 
+export const INTERNSHIP_WELCOME_GREETING = `Hello! 👋 Welcome to the *Cortexa AI Changemakers Internship 2026*! 🚀
+
+I'm here to assist you with everything about the program:
+• 11 Internship Tracks (AI, Software Engineering, Cybersecurity, Marketing, HR, Product, and more)
+• 20 Real-World Capstone Projects
+• Required Tech Stacks & Tools
+• Deliverables & Submission Guidelines
+
+Official Portal: https://internship.datacrumbs.org
+
+How can I help you today? Feel free to ask about any track or project! 😊`;
+
 export function getDefaultAgent1(): AgentConfig {
   return {
-    id: 'datacrumbs',
-    name: 'DataCrumbs AI Bootcamp (Zoya)',
-    phoneNumberId: process.env.PHONE_NUMBER_ID || '1262177280310159',
-    systemPrompt: CORE_SYSTEM_PROMPT,
-    welcomeGreeting: WELCOME_GREETING,
-    brochureUrl: 'https://agent.datacrumbs.org/brochure.pdf',
-    brochureFilename: 'DataCrumbs-Bootcamp-Brochure.pdf',
-    paymentDetails: {
-      bankName: process.env.PAYMENT_BANK_NAME || 'HabibMetro Bank',
-      accountTitle: process.env.PAYMENT_BANK_TITLE || 'Data Crumbs',
-      iban: process.env.PAYMENT_BANK_IBAN || 'PK61 MPBL 0165 0271 4028 0184',
-      accountNumber: process.env.PAYMENT_BANK_ACCOUNT || '6016520311714280184',
-      walletTitle: process.env.PAYMENT_WALLET_TITLE || 'Abis Hussain Syed',
-      walletNumber: process.env.PAYMENT_WALLET_NUMBER || '0336-2507273',
-      fee: process.env.PAYMENT_FEE || 'Rs. 7,499/month',
-    },
+    id: 'cortexa_internship',
+    name: 'Cortexa AI Internship Assistant',
+    phoneNumberId: process.env.PHONE_NUMBER_ID || '1374955249033565',
+    systemPrompt: `You are the official Cortexa AI Internship Assistant for Cortexa AI Changemakers Internship 2026. The internship runs for 4 weeks with real-world capstone projects across 11 technical and business domains.`,
+    welcomeGreeting: INTERNSHIP_WELCOME_GREETING,
+    brochureUrl: undefined,
+    brochureFilename: undefined,
   };
 }
 
