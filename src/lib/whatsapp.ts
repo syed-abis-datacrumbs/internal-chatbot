@@ -67,10 +67,47 @@ function headers() {
   };
 }
 
+/**
+ * Sanitizes markdown text specifically for WhatsApp mobile rendering:
+ * - Converts ### headers into *bold titles*
+ * - Removes --- horizontal lines
+ * - Removes technical database UUIDs (e.g. Project ID: b33cabc0...)
+ * - Converts markdown list asterisks (* or -) into clean bullet symbols (•)
+ * - Converts double asterisks (**bold**) into WhatsApp single asterisks (*bold*)
+ */
+export function formatForWhatsApp(text: string): string {
+  if (!text) return '';
+  let cleaned = text;
+
+  // 1. Remove markdown horizontal lines (---, ***, ___)
+  cleaned = cleaned.replace(/^[ \t]*[-*_]{3,}[ \t]*$/gm, '');
+
+  // 2. Remove internal Project IDs / UUIDs (users don't need technical database UUIDs)
+  cleaned = cleaned.replace(/^[ \t]*[*•-]?\s*\*?Project ID\*?:?\s*[a-f0-9-]{10,}\s*$/gmi, '');
+
+  // 3. Convert markdown headers (### Title, ## Title) to bold text (*Title*)
+  cleaned = cleaned.replace(/^[ \t]*#{1,6}[ \t]+(.*)$/gm, (_m, header) => `*${header.trim()}*`);
+
+  // 4. Convert markdown list asterisks or dashes at start of line to clean bullet points
+  cleaned = cleaned.replace(/^[ \t]*[*+-][ \t]+/gm, '• ');
+
+  // 5. Convert markdown double/triple asterisks (**bold**) to WhatsApp single asterisk (*bold*)
+  cleaned = cleaned.replace(/\*{2,}/g, '*');
+
+  // 6. Clean up trailing or leading spaces around bullets
+  cleaned = cleaned.replace(/^•[ \t]*/gm, '• ');
+
+  // 7. Clean up excessive blank lines (more than 2 consecutive newlines)
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
+
+  return cleaned;
+}
+
 export async function sendWhatsAppMessage(to: string, text: string, fromPhoneNumberId?: string) {
+  const formattedText = formatForWhatsApp(text);
   await axios.post(
     apiUrl('/messages', fromPhoneNumberId),
-    { messaging_product: 'whatsapp', to, type: 'text', text: { body: text } },
+    { messaging_product: 'whatsapp', to, type: 'text', text: { body: formattedText } },
     { headers: headers() }
   );
 }
