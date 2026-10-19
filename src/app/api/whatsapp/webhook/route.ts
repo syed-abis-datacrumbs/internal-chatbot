@@ -33,8 +33,8 @@ import {
 // ── GET: Meta webhook verification ───────────────────────────────────────────
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const mode      = searchParams.get('hub.mode');
-  const token     = searchParams.get('hub.verify_token');
+  const mode = searchParams.get('hub.mode');
+  const token = searchParams.get('hub.verify_token');
   const challenge = searchParams.get('hub.challenge');
 
   if (mode === 'subscribe' && token === process.env.VERIFY_TOKEN) {
@@ -129,7 +129,7 @@ function isPriceShockReaction(text: string): boolean {
   );
 }
 
-// True if the message is a B2B / vendor / partnership pitch rather than a student enquiry
+/// True if the message is a B2B / vendor / partnership pitch rather than a student enquiry
 function isBusinessPitch(text: string): boolean {
   const t = text.toLowerCase();
 
@@ -334,7 +334,7 @@ async function runEnrollmentMachine(
           }
           break;
         }
-        session.name  = nameOnly;
+        session.name = nameOnly;
         session.state = 'awaiting_screenshot';
         await syncLeadNameIfNew(from, priorContactName, session.name);
         reply = `Perfect, *${session.name}*! 🎉\n\n${buildPaymentMsg(agent)}`;
@@ -350,7 +350,7 @@ async function runEnrollmentMachine(
           session.email = email;
           reply = `Got your email! 😊 Could you share your *full name*?\n\nExample: _John Doe_`;
         } else {
-          session.name  = name;
+          session.name = name;
           session.email = email;
           session.state = 'awaiting_screenshot';
           await syncLeadNameIfNew(from, priorContactName, session.name);
@@ -368,7 +368,7 @@ async function runEnrollmentMachine(
             reply = `Please share your *full name* and *email address* to continue.\n\nExample: _John Doe, johndoe@gmail.com_`;
           }
         } else {
-          session.name  = name;
+          session.name = name;
           session.state = 'collecting_email';
           await syncLeadNameIfNew(from, priorContactName, session.name);
           reply = `Thanks *${session.name}*! 😊 Now please share your *email address*.`;
@@ -430,9 +430,9 @@ async function runEnrollmentMachine(
           webViewLink = driveRes.webViewLink;
 
           rowIndex = await appendEnrollmentRow({
-            name:      session.name || 'Student',
-            email:     session.email || 'unknown@datacrumbs.org',
-            phone:     from,
+            name: session.name || 'Student',
+            email: session.email || 'unknown@datacrumbs.org',
+            phone: from,
             timestamp: ts,
             driveLink: webViewLink,
           });
@@ -441,7 +441,7 @@ async function runEnrollmentMachine(
         }
 
         if (fileId) {
-          session.driveFileId  = fileId;
+          session.driveFileId = fileId;
           session.driveFileUrl = webViewLink;
           mediaUrl = fileId;
         }
@@ -489,7 +489,7 @@ async function runEnrollmentMachine(
         }
 
         if (fileId) {
-          session.driveFileId  = fileId;
+          session.driveFileId = fileId;
           session.driveFileUrl = webViewLink;
           mediaUrl = fileId;
         }
@@ -543,486 +543,486 @@ export async function POST(req: NextRequest) {
     const message = value?.messages?.[0];
     if (!message) return NextResponse.json({}, { status: 200 });
 
-      const from      = message.from as string;
-      const msgType   = message.type as string;
-      const text      = msgType === 'text' ? (message.text?.body as string ?? '') : (message.image?.caption ?? message.document?.caption ?? '');
-      // Accept any document as a potential payment screenshot — don't restrict by MIME/filename
-      const imageId   = message.image?.id ?? message.document?.id;
-      const imageMime = message.image?.mime_type ?? message.document?.mime_type ?? 'image/jpeg';
+    const from = message.from as string;
+    const msgType = message.type as string;
+    const text = msgType === 'text' ? (message.text?.body as string ?? '') : (message.image?.caption ?? message.document?.caption ?? '');
+    // Accept any document as a potential payment screenshot — don't restrict by MIME/filename
+    const imageId = message.image?.id ?? message.document?.id;
+    const imageMime = message.image?.mime_type ?? message.document?.mime_type ?? 'image/jpeg';
 
-      // Multi-number dynamic sender & storage functions
-      const sendWhatsAppMessageCurrent = (to: string, msgText: string) =>
-        sendWhatsAppMessage(to, msgText, receivingPhoneId);
-      const sendWhatsAppDocumentCurrent = (to: string) =>
-        sendWhatsAppDocument(to, agent.brochureUrl, agent.brochureFilename, receivingPhoneId);
-      const saveMessageCurrent = (msg: { from: string; text: string; reply: string; timestamp: number; mediaUrl?: string; mediaType?: 'image' | 'document' }) =>
-        saveMessage({ ...msg, agentId: agent.id, receivingPhoneId });
+    // Multi-number dynamic sender & storage functions
+    const sendWhatsAppMessageCurrent = (to: string, msgText: string) =>
+      sendWhatsAppMessage(to, msgText, receivingPhoneId);
+    const sendWhatsAppDocumentCurrent = (to: string) =>
+      sendWhatsAppDocument(to, agent.brochureUrl, agent.brochureFilename, receivingPhoneId);
+    const saveMessageCurrent = (msg: { from: string; text: string; reply: string; timestamp: number; mediaUrl?: string; mediaType?: 'image' | 'document' }) =>
+      saveMessage({ ...msg, agentId: agent.id, receivingPhoneId });
 
-      const [session, contactProfile, hadPriorMessages] = await Promise.all([
-        getActiveEnrollmentSession(from),
-        getContactProfile(from),
-        hasPriorMessages(from),
-      ]);
+    const [session, contactProfile, hadPriorMessages] = await Promise.all([
+      getActiveEnrollmentSession(from),
+      getContactProfile(from),
+      hasPriorMessages(from),
+    ]);
 
-      // Check if user explicitly stated their name in this message ("My name is John")
-      const newlyStatedName = msgType === 'text' ? extractExplicitNameFromText(text) : null;
-      if (newlyStatedName) {
-        await saveContactProfile({ phone: from, name: newlyStatedName, nameAsked: false });
-        await syncLeadNameIfNew(from, contactProfile?.name, newlyStatedName);
+    // Check if user explicitly stated their name in this message ("My name is John")
+    const newlyStatedName = msgType === 'text' ? extractExplicitNameFromText(text) : null;
+    if (newlyStatedName) {
+      await saveContactProfile({ phone: from, name: newlyStatedName, nameAsked: false });
+      await syncLeadNameIfNew(from, contactProfile?.name, newlyStatedName);
+    }
+
+    const explicitName = newlyStatedName || (contactProfile?.name && looksLikeName(contactProfile.name) ? contactProfile.name : undefined);
+
+    // ── New lead → log to the "agent leads" Google Sheet tab (once per contact, ever) ──
+    // Uses an atomic claim (claimNewLead), not hadPriorMessages — a plain existence
+    // check has a race window where two near-simultaneous messages from the same
+    // genuinely-new contact could both see "no prior messages" and both write a row.
+    // This guarantees at most one row per phone no matter what: demo/discount/
+    // enrollment requests from a RETURNING contact are still fully handled below,
+    // they just never touch the leads sheet again since their number is already on file.
+    if (process.env.ENABLE_GOOGLE_SHEETS === 'true' && (await claimNewLead(from))) {
+      try {
+        await appendLeadRow({ name: explicitName ?? null, phone: from, timestamp: Date.now() });
+      } catch (err) {
+        console.error('Failed to append lead to sheet:', err instanceof Error ? err.message : err);
       }
+    }
 
-      const explicitName = newlyStatedName || (contactProfile?.name && looksLikeName(contactProfile.name) ? contactProfile.name : undefined);
-
-      // ── New lead → log to the "agent leads" Google Sheet tab (once per contact, ever) ──
-      // Uses an atomic claim (claimNewLead), not hadPriorMessages — a plain existence
-      // check has a race window where two near-simultaneous messages from the same
-      // genuinely-new contact could both see "no prior messages" and both write a row.
-      // This guarantees at most one row per phone no matter what: demo/discount/
-      // enrollment requests from a RETURNING contact are still fully handled below,
-      // they just never touch the leads sheet again since their number is already on file.
-      if (process.env.ENABLE_GOOGLE_SHEETS === 'true' && (await claimNewLead(from))) {
-        try {
-          await appendLeadRow({ name: explicitName ?? null, phone: from, timestamp: Date.now() });
-        } catch (err) {
-          console.error('Failed to append lead to sheet:', err instanceof Error ? err.message : err);
-        }
+    // ── 0. Bot toggle ────────────────────────────────────────────────────
+    if (contactProfile?.botDisabled) {
+      if (msgType === 'text' && text) {
+        await saveMessageCurrent({ from, text, reply: '', timestamp: Date.now() });
       }
+      return;
+    }
 
-      // ── 0. Bot toggle ────────────────────────────────────────────────────
-      if (contactProfile?.botDisabled) {
-        if (msgType === 'text' && text) {
-          await saveMessageCurrent({ from, text, reply: '', timestamp: Date.now() });
-        }
-        return;
+    // ── 0b. Brochure shortcut — checked before enrollment so ALL users get the PDF ──
+    if (msgType === 'text' && wantsBrochure(text)) {
+      const brochureBlurb = 'Here is our complete Data Science & AI Bootcamp brochure! It covers the full curriculum, pricing, internship details, and instructor profiles. Let me know if you have any questions 😊';
+      // First-ever message from this contact — lead with the official intro, not just the PDF
+      const reply = hadPriorMessages ? brochureBlurb : `${WELCOME_GREETING}\n\n${brochureBlurb}`;
+      let sentDoc = false;
+      try {
+        await sendWhatsAppDocumentCurrent(from);
+        sentDoc = true;
+      } catch (err) {
+        console.error('Failed to send brochure document:', err instanceof Error ? err.message : err);
       }
+      await sendWhatsAppMessageCurrent(from, reply);
+      await saveMessageCurrent({ from, text, reply, timestamp: Date.now(), ...(sentDoc ? { mediaType: 'document' as const } : {}) });
+      return;
+    }
 
-      // ── 0b. Brochure shortcut — checked before enrollment so ALL users get the PDF ──
-      if (msgType === 'text' && wantsBrochure(text)) {
-        const brochureBlurb = 'Here is our complete Data Science & AI Bootcamp brochure! It covers the full curriculum, pricing, internship details, and instructor profiles. Let me know if you have any questions 😊';
-        // First-ever message from this contact — lead with the official intro, not just the PDF
-        const reply = hadPriorMessages ? brochureBlurb : `${WELCOME_GREETING}\n\n${brochureBlurb}`;
-        let sentDoc = false;
-        try {
-          await sendWhatsAppDocumentCurrent(from);
-          sentDoc = true;
-        } catch (err) {
-          console.error('Failed to send brochure document:', err instanceof Error ? err.message : err);
-        }
-        await sendWhatsAppMessageCurrent(from, reply);
-        await saveMessageCurrent({ from, text, reply, timestamp: Date.now(), ...(sentDoc ? { mediaType: 'document' as const } : {}) });
-        return;
-      }
+    // Conversation context — fetched once and reused by every branch below
+    const recentMsgs = msgType === 'text' ? await getRecentMessagesByPhone(from, 10) : [];
 
-      // Conversation context — fetched once and reused by every branch below
-      const recentMsgs = msgType === 'text' ? await getRecentMessagesByPhone(from, 10) : [];
+    // ── 0b2. Discount offer confirmation ─────────────────────────────────
+    // We've asked "should I forward this to management?" — wait for a clear
+    // yes/no before ever asking for name/email. Anything ambiguous (like a
+    // question) gets a short answer and the offer repeated, not a name/email demand.
+    if (msgType === 'text' && contactProfile?.discountOfferPending) {
+      const existingName = contactProfile.discountCollectedName
+        || (contactProfile.name && looksLikeName(contactProfile.name) ? contactProfile.name : null);
 
-      // ── 0b2. Discount offer confirmation ─────────────────────────────────
-      // We've asked "should I forward this to management?" — wait for a clear
-      // yes/no before ever asking for name/email. Anything ambiguous (like a
-      // question) gets a short answer and the offer repeated, not a name/email demand.
-      if (msgType === 'text' && contactProfile?.discountOfferPending) {
-        const existingName = contactProfile.discountCollectedName
-          || (contactProfile.name && looksLikeName(contactProfile.name) ? contactProfile.name : null);
+      let offerReply: string;
 
-        let offerReply: string;
-
-        if (isAffirmative(text)) {
-          if (existingName) {
-            offerReply = `Great, *${existingName}*! 🙌 Please share your *email address* so I can forward this to our management team.\n\nExample: _johndoe@gmail.com_`;
-          } else {
-            offerReply = `Great! 🙌 Please share your *full name* and *email address* so I can forward this to our management team.\n\nExample: _John Doe, johndoe@gmail.com_`;
-          }
-          await saveContactProfile({
-            phone: from,
-            discountOfferPending: false,
-            discountPending: true,
-            ...(existingName ? { discountCollectedName: existingName } : {}),
-          });
-        } else if (isNegative(text)) {
-          offerReply = `No problem at all! 😊 Feel free to ask me anything else — curriculum, schedule, or enrollment.`;
-          await saveContactProfile({ phone: from, discountOfferPending: false });
+      if (isAffirmative(text)) {
+        if (existingName) {
+          offerReply = `Great, *${existingName}*! 🙌 Please share your *email address* so I can forward this to our management team.\n\nExample: _johndoe@gmail.com_`;
         } else {
-          // Ambiguous / a question — answer briefly, then repeat the offer (never demand contact info here)
-          offerReply = `Our management reviews each request individually and may be able to offer you a special discount. 😊\n\nWould you like me to forward your request to them? (yes/no)`;
+          offerReply = `Great! 🙌 Please share your *full name* and *email address* so I can forward this to our management team.\n\nExample: _John Doe, johndoe@gmail.com_`;
         }
-
-        await sendWhatsAppMessageCurrent(from, offerReply);
-        await saveMessageCurrent({ from, text, reply: offerReply, timestamp: Date.now() });
-        return;
-      }
-
-      // ── 0c. Discount collection state ────────────────────────────────────
-      // Runs BEFORE the enrollment-session branch so it applies to every user,
-      // including those with an existing (e.g. approved) enrollment session.
-      if (msgType === 'text' && contactProfile?.discountPending) {
-        const collectedName  = contactProfile.discountCollectedName;
-        const collectedEmail = contactProfile.discountCollectedEmail;
-
-        let finalName:  string | null = collectedName  ?? null;
-        let finalEmail: string | null = collectedEmail ?? null;
-
-        const { email: parsedEmail, name: parsedName } = extractEmailAndName(text);
-        if (parsedEmail && !finalEmail) finalEmail = parsedEmail;
-        if (parsedName && looksLikeName(parsedName) && !finalName) finalName = parsedName;
-        // Raw text as name if short and looks like one
-        if (!finalName && looksLikeName(text.trim())) finalName = text.trim();
-
-        let discountReply: string;
-
-        if (finalName && finalEmail) {
-          const ts = Date.now();
-          try {
-            await saveDiscountRequest({ phone: from, name: finalName, email: finalEmail, message: contactProfile.discountOriginalMessage || text, timestamp: ts });
-            await appendDiscountRow({ name: finalName, phone: from, email: finalEmail, message: contactProfile.discountOriginalMessage || text, timestamp: ts });
-          } catch (err) {
-            console.error('Failed to save discount request:', err instanceof Error ? err.message : err);
-          }
-          await saveContactProfile({ phone: from, name: finalName, discountPending: false, hasSubmittedDiscountRequest: true });
-          await syncLeadNameIfNew(from, contactProfile?.name, finalName);
-          discountReply = `✅ Thank you, *${finalName}*! Your request has been forwarded to our management team. They'll reach out to you directly on this WhatsApp number shortly. 😊`;
-        } else if (finalEmail && !finalName) {
-          await saveContactProfile({ phone: from, discountCollectedEmail: finalEmail });
-          discountReply = `Got your email! 😊 Could you also share your *full name*, please?\n\nExample: _John Doe_`;
-        } else if (finalName && !finalEmail) {
-          await saveContactProfile({ phone: from, name: finalName, discountCollectedName: finalName });
-          await syncLeadNameIfNew(from, contactProfile?.name, finalName);
-          discountReply = `Thanks *${finalName}*! 😊 Could you also share your *email address*?\n\nExample: _johndoe@gmail.com_`;
-        } else {
-          discountReply = `Please share your *full name* and *email address* so we can forward your request to the management team.\n\nExample: _John Doe, johndoe@gmail.com_`;
-        }
-
-        await sendWhatsAppMessageCurrent(from, discountReply);
-        await saveMessageCurrent({ from, text, reply: discountReply, timestamp: Date.now() });
-        return;
-      }
-
-      // ── 0c2. Demo class collection state ─────────────────────────────────
-      // Simpler than discount: no yes/no offer step — goes straight to
-      // collecting name/email once a demo request was detected (0e2 below).
-      if (msgType === 'text' && contactProfile?.demoPending) {
-        const collectedName  = contactProfile.demoCollectedName;
-        const collectedEmail = contactProfile.demoCollectedEmail;
-
-        let finalName:  string | null = collectedName  ?? null;
-        let finalEmail: string | null = collectedEmail ?? null;
-
-        const { email: parsedEmail, name: parsedName } = extractEmailAndName(text);
-        if (parsedEmail && !finalEmail) finalEmail = parsedEmail;
-        if (parsedName && looksLikeName(parsedName) && !finalName) finalName = parsedName;
-        if (!finalName && looksLikeName(text.trim())) finalName = text.trim();
-
-        let demoReply: string;
-
-        if (finalName && finalEmail) {
-          const ts = Date.now();
-          try {
-            await saveDemoRequest({ phone: from, name: finalName, email: finalEmail, message: contactProfile.demoOriginalMessage || text, timestamp: ts });
-            await appendDemoRow({ name: finalName, phone: from, email: finalEmail, message: contactProfile.demoOriginalMessage || text, timestamp: ts });
-          } catch (err) {
-            console.error('Failed to save demo request:', err instanceof Error ? err.message : err);
-          }
-          await saveContactProfile({ phone: from, name: finalName, demoPending: false, hasSubmittedDemoRequest: true });
-          await syncLeadNameIfNew(from, contactProfile?.name, finalName);
-          demoReply = `✅ Thank you, *${finalName}*! I've shared your demo class request with our management team. They'll reach out to you directly on this WhatsApp number shortly. 😊`;
-        } else if (finalEmail && !finalName) {
-          await saveContactProfile({ phone: from, demoCollectedEmail: finalEmail });
-          demoReply = `Got your email! 😊 Could you also share your *full name*, please?\n\nExample: _John Doe_`;
-        } else if (finalName && !finalEmail) {
-          await saveContactProfile({ phone: from, name: finalName, demoCollectedName: finalName });
-          await syncLeadNameIfNew(from, contactProfile?.name, finalName);
-          demoReply = `Thanks *${finalName}*! 😊 Could you also share your *email address*?\n\nExample: _johndoe@gmail.com_`;
-        } else {
-          demoReply = `Please share your *full name* and *email address* so I can share this with our management team.\n\nExample: _John Doe, johndoe@gmail.com_`;
-        }
-
-        await sendWhatsAppMessageCurrent(from, demoReply);
-        await saveMessageCurrent({ from, text, reply: demoReply, timestamp: Date.now() });
-        return;
-      }
-
-      // ── 0d. B2B / vendor pitch — decline politely, never route into student flows ──
-      if (msgType === 'text' && isBusinessPitch(text)) {
-        const pitchReply = `Thank you for reaching out! 🙏\n\nWe're a student-focused training platform and don't take vendor or partnership meetings through this channel.\n\nFor business enquiries, please email *info@datacrumbs.org*.`;
-        await sendWhatsAppMessageCurrent(from, pitchReply);
-        await saveMessageCurrent({ from, text, reply: pitchReply, timestamp: Date.now() });
-        return;
-      }
-
-      // ── 0e. Discount collection trigger ──────────────────────────────────
-      // Fires when: (a) explicit affordability/discount request, OR
-      //             (b) vague sticker-shock reaction right after we quoted the fee, OR
-      //             (c) group discount already explained AND they're STILL asking about discount
-      const lastTwoReplies = recentMsgs.slice(-2).map(m => m.reply || '').join(' ');
-      const feeJustQuoted  = /7,?499|7499|per month|\/month|\bfee\b|\bprice\b/i.test(lastTwoReplies);
-
-      const groupDiscountExplained = recentMsgs.some(m => m.reply && m.reply.includes('20%'));
-      const stillAskingDiscount    = /\bdiscount\b/i.test(text);
-
-      const shouldCollectDiscount =
-        msgType === 'text' && (
-          needsAffordabilityHelp(text) ||
-          (feeJustQuoted && isPriceShockReaction(text)) ||
-          (groupDiscountExplained && stillAskingDiscount)
-        );
-
-      if (shouldCollectDiscount) {
-        const existingName = contactProfile?.name && looksLikeName(contactProfile.name) ? contactProfile.name : null;
-
-        // Already have a discount request on file for this contact — this is a follow-up
-        // (e.g. a counter-offer after management responded), not a fresh request. Update
-        // the existing record instead of re-asking for name/email or re-offering to forward.
-        if (contactProfile?.hasSubmittedDiscountRequest) {
-          try {
-            await updateDiscountRequestComment(from, text);
-            await updateDiscountRowComment(from, text);
-          } catch (err) {
-            console.error('Failed to update discount comment:', err instanceof Error ? err.message : err);
-          }
-          const followUpReply = `Got it${existingName ? `, *${existingName}*` : ''}! I've passed along your update to our management team. They'll follow up with you soon. 😊`;
-          await sendWhatsAppMessageCurrent(from, followUpReply);
-          await saveMessageCurrent({ from, text, reply: followUpReply, timestamp: Date.now() });
-          return;
-        }
-
-        const groupDiscountNote = `By the way, we also offer a special *20% group discount* when 2+ students enroll together! 😊\n\n`;
-        const greeting = existingName ? `I understand, *${existingName}*!` : `I understand your situation!`;
-        const discountReply = `${greeting}\n\n${groupDiscountNote}I can forward your request to our management team — they sometimes offer a special discount based on individual circumstances.\n\nWould you like me to forward this to them? (yes/no)`;
         await saveContactProfile({
           phone: from,
-          discountOfferPending: true,
-          discountOriginalMessage: text,
+          discountOfferPending: false,
+          discountPending: true,
           ...(existingName ? { discountCollectedName: existingName } : {}),
         });
-        const sentDoc = await attachBrochureIfFirstContact(hadPriorMessages, from);
-        await sendWhatsAppMessageCurrent(from, discountReply);
-        await saveMessage({
-          from, text, reply: discountReply, timestamp: Date.now(),
-          ...(sentDoc ? { mediaType: 'document' as const } : {}),
-        });
-        return;
+      } else if (isNegative(text)) {
+        offerReply = `No problem at all! 😊 Feel free to ask me anything else — curriculum, schedule, or enrollment.`;
+        await saveContactProfile({ phone: from, discountOfferPending: false });
+      } else {
+        // Ambiguous / a question — answer briefly, then repeat the offer (never demand contact info here)
+        offerReply = `Our management reviews each request individually and may be able to offer you a special discount. 😊\n\nWould you like me to forward your request to them? (yes/no)`;
       }
 
-      // ── 0e2. Demo class request trigger ──────────────────────────────────
-      // We DO offer demo classes — confirm that directly and go straight to
-      // collecting name/email (no yes/no offer step, unlike discount).
-      if (msgType === 'text' && wantsDemo(text)) {
-        const existingName = contactProfile?.name && looksLikeName(contactProfile.name) ? contactProfile.name : null;
+      await sendWhatsAppMessageCurrent(from, offerReply);
+      await saveMessageCurrent({ from, text, reply: offerReply, timestamp: Date.now() });
+      return;
+    }
 
-        // Already have a demo request on file — don't re-collect, just reassure
-        if (contactProfile?.hasSubmittedDemoRequest) {
-          const alreadyReply = `You're all set${existingName ? `, *${existingName}*` : ''}! We've already shared your demo class request with our management team — they'll reach out to you soon. 😊`;
-          await sendWhatsAppMessageCurrent(from, alreadyReply);
-          await saveMessageCurrent({ from, text, reply: alreadyReply, timestamp: Date.now() });
-          return;
-        }
+    // ── 0c. Discount collection state ────────────────────────────────────
+    // Runs BEFORE the enrollment-session branch so it applies to every user,
+    // including those with an existing (e.g. approved) enrollment session.
+    if (msgType === 'text' && contactProfile?.discountPending) {
+      const collectedName = contactProfile.discountCollectedName;
+      const collectedEmail = contactProfile.discountCollectedEmail;
 
-        const demoReply = existingName
-          ? `Yes, we do offer demo classes, *${existingName}*! 😊 Please also share your *email address* so I can share this with our management team.\n\nExample: _johndoe@gmail.com_`
-          : `Yes, we do offer demo classes! 😊 Please share your *full name* and *email address* so I can share this with our management team.\n\nExample: _John Doe, johndoe@gmail.com_`;
+      let finalName: string | null = collectedName ?? null;
+      let finalEmail: string | null = collectedEmail ?? null;
 
-        await saveContactProfile({
-          phone: from,
-          demoPending: true,
-          demoOriginalMessage: text,
-          ...(existingName ? { demoCollectedName: existingName } : {}),
-        });
-        const sentDoc2 = await attachBrochureIfFirstContact(hadPriorMessages, from);
-        await sendWhatsAppMessageCurrent(from, demoReply);
-        await saveMessage({
-          from, text, reply: demoReply, timestamp: Date.now(),
-          ...(sentDoc2 ? { mediaType: 'document' as const } : {}),
-        });
-        return;
-      }
+      const { email: parsedEmail, name: parsedName } = extractEmailAndName(text);
+      if (parsedEmail && !finalEmail) finalEmail = parsedEmail;
+      if (parsedName && looksLikeName(parsedName) && !finalName) finalName = parsedName;
+      // Raw text as name if short and looks like one
+      if (!finalName && looksLikeName(text.trim())) finalName = text.trim();
 
-      // ── 0f. Conversational closer ("thanks", "ok", "no more questions", or a bare emoji) ──
-      // Checked BEFORE the enrollment-session branch so a stuck/abandoned session
-      // (e.g. someone started enrolling, got distracted, never provided name+email)
-      // can't hijack every later "ok"/"thanks" into runEnrollmentMachine's raw Gemini
-      // fallback, which has no concept of "don't repeat yourself" — that was producing
-      // a fresh verbose reply to every single closer instead of a short acknowledgment.
-      const isEmojiOnlyClose = msgType === 'text' && isPureEmojiMessage(text);
-      if (msgType === 'text' && (isConversationalCloser(text) || isEmojiOnlyClose)) {
-        const existingName = contactProfile?.name && looksLikeName(contactProfile.name) ? contactProfile.name : null;
-        let closerReply: string;
-        if (contactProfile?.lastReplyWasClosing) {
-          closerReply = '🙂';
-        } else if (isEmojiOnlyClose) {
-          closerReply = `Thank you so much${existingName ? `, *${existingName}*` : ''} for contacting! 😊 If you want to ask anything in the future or whenever, feel free to contact me anytime.`;
-        } else {
-          closerReply = `You're welcome${existingName ? `, *${existingName}*` : ''}! 😊 Feel free to reach out anytime you have more questions.`;
-        }
-        await saveContactProfile({ phone: from, lastReplyWasClosing: true });
-        await sendWhatsAppMessageCurrent(from, closerReply);
-        await saveMessageCurrent({ from, text, reply: closerReply, timestamp: Date.now() });
-        return;
-      }
+      let discountReply: string;
 
-      // ── 1. Active enrollment session ─────────────────────────────────────
-      if (session) {
-        const history: GeminiHistory = recentMsgs.flatMap(m => [
-          ...(m.text && m.text !== '[image]' ? [{ role: 'user'  as const, parts: [{ text: m.text  }] }] : []),
-          ...(m.reply                         ? [{ role: 'model' as const, parts: [{ text: m.reply }] }] : []),
-        ]);
-
-        const { reply, mediaUrl } = await runEnrollmentMachine(
-          from, session, msgType, text, imageId, imageMime, history, explicitName, contactProfile?.name, agent,
-        );
-        await sendWhatsAppMessageCurrent(from, reply);
-        const isMediaMsg = msgType === 'image' || msgType === 'document';
-        await saveMessageCurrent({
-          from,
-          text: isMediaMsg ? '[image]' : text,
-          reply,
-          timestamp: Date.now(),
-          ...(isMediaMsg ? { mediaType: 'image' as const, ...(mediaUrl ? { mediaUrl } : {}) } : {}),
-        });
-        return;
-      }
-
-      // ── 2. Save non-text messages so they appear in the dashboard ────────
-      if (msgType !== 'text') {
-        if (msgType === 'image' || msgType === 'document') {
-          let mediaUrl: string | undefined;
-          if (imageId) {
-            try {
-              const { buffer, mimeType } = await downloadWhatsAppMedia(imageId);
-              const { fileId } = await uploadScreenshotToDrive(buffer, mimeType, from, Date.now());
-              mediaUrl = fileId;
-            } catch (err) {
-              console.error('Drive upload failed (non-enrollment):', err instanceof Error ? err.message : err);
-            }
-          }
-          await attachBrochureIfFirstContact(hadPriorMessages, from, agent, receivingPhoneId);
-          const imgReply = 'Please type your question in text 😊';
-          await sendWhatsAppMessageCurrent(from, imgReply);
-          await saveMessageCurrent({
-            from, text: '[image]', reply: imgReply, timestamp: Date.now(),
-            mediaType: 'image',
-            ...(mediaUrl ? { mediaUrl } : {}),
-          });
-        }
-        return;
-      }
-
-      // ── 4. Enrollment intent ──────────────────────────────────────────────
-      if (wantsEnrollment(text)) {
-        const newSession: EnrollmentSession = {
-          phone:         from,
-          state:         'collecting_name',
-          name:          null,
-          email:         null,
-          driveFileId:   null,
-          driveFileUrl:  null,
-          sheetRowIndex: null,
-          createdAt:     Date.now(),
-          updatedAt:     Date.now(),
-        };
-        const reply = `Great! I'll get you enrolled in the *4-Month AI & Data Science Bootcamp* 🎓\n\nPlease share your *full name* and *email address* together so we can get started!\n\nExample: _John Doe, johndoe@gmail.com_`;
-        await saveEnrollmentSession(newSession);
-        const sentDoc = await attachBrochureIfFirstContact(hadPriorMessages, from, agent, receivingPhoneId);
-        await sendWhatsAppMessageCurrent(from, reply);
-        await saveMessageCurrent({
-          from, text, reply, timestamp: Date.now(),
-          ...(sentDoc ? { mediaType: 'document' as const } : {}),
-        });
-        return;
-      }
-
-      // ── 4b. First-ever pure greeting → send official welcome + brochure together ──
-      // Bypasses Gemini so the greeting text and the brochure attach are guaranteed
-      // to arrive together, deterministically, on this contact's very first message.
-      if (!hadPriorMessages && isPureGreeting(text)) {
-        let sentDoc = false;
+      if (finalName && finalEmail) {
+        const ts = Date.now();
         try {
-          await sendWhatsAppDocumentCurrent(from);
-          sentDoc = true;
+          await saveDiscountRequest({ phone: from, name: finalName, email: finalEmail, message: contactProfile.discountOriginalMessage || text, timestamp: ts });
+          await appendDiscountRow({ name: finalName, phone: from, email: finalEmail, message: contactProfile.discountOriginalMessage || text, timestamp: ts });
         } catch (err) {
-          console.error('Failed to send brochure on first greeting:', err instanceof Error ? err.message : err);
+          console.error('Failed to save discount request:', err instanceof Error ? err.message : err);
         }
-        await sendWhatsAppMessageCurrent(from, agent.welcomeGreeting);
-        await saveMessageCurrent({
-          from, text, reply: agent.welcomeGreeting, timestamp: Date.now(),
-          ...(sentDoc ? { mediaType: 'document' as const } : {}),
-        });
+        await saveContactProfile({ phone: from, name: finalName, discountPending: false, hasSubmittedDiscountRequest: true });
+        await syncLeadNameIfNew(from, contactProfile?.name, finalName);
+        discountReply = `✅ Thank you, *${finalName}*! Your request has been forwarded to our management team. They'll reach out to you directly on this WhatsApp number shortly. 😊`;
+      } else if (finalEmail && !finalName) {
+        await saveContactProfile({ phone: from, discountCollectedEmail: finalEmail });
+        discountReply = `Got your email! 😊 Could you also share your *full name*, please?\n\nExample: _John Doe_`;
+      } else if (finalName && !finalEmail) {
+        await saveContactProfile({ phone: from, name: finalName, discountCollectedName: finalName });
+        await syncLeadNameIfNew(from, contactProfile?.name, finalName);
+        discountReply = `Thanks *${finalName}*! 😊 Could you also share your *email address*?\n\nExample: _johndoe@gmail.com_`;
+      } else {
+        discountReply = `Please share your *full name* and *email address* so we can forward your request to the management team.\n\nExample: _John Doe, johndoe@gmail.com_`;
+      }
+
+      await sendWhatsAppMessageCurrent(from, discountReply);
+      await saveMessageCurrent({ from, text, reply: discountReply, timestamp: Date.now() });
+      return;
+    }
+
+    // ── 0c2. Demo class collection state ─────────────────────────────────
+    // Simpler than discount: no yes/no offer step — goes straight to
+    // collecting name/email once a demo request was detected (0e2 below).
+    if (msgType === 'text' && contactProfile?.demoPending) {
+      const collectedName = contactProfile.demoCollectedName;
+      const collectedEmail = contactProfile.demoCollectedEmail;
+
+      let finalName: string | null = collectedName ?? null;
+      let finalEmail: string | null = collectedEmail ?? null;
+
+      const { email: parsedEmail, name: parsedName } = extractEmailAndName(text);
+      if (parsedEmail && !finalEmail) finalEmail = parsedEmail;
+      if (parsedName && looksLikeName(parsedName) && !finalName) finalName = parsedName;
+      if (!finalName && looksLikeName(text.trim())) finalName = text.trim();
+
+      let demoReply: string;
+
+      if (finalName && finalEmail) {
+        const ts = Date.now();
+        try {
+          await saveDemoRequest({ phone: from, name: finalName, email: finalEmail, message: contactProfile.demoOriginalMessage || text, timestamp: ts });
+          await appendDemoRow({ name: finalName, phone: from, email: finalEmail, message: contactProfile.demoOriginalMessage || text, timestamp: ts });
+        } catch (err) {
+          console.error('Failed to save demo request:', err instanceof Error ? err.message : err);
+        }
+        await saveContactProfile({ phone: from, name: finalName, demoPending: false, hasSubmittedDemoRequest: true });
+        await syncLeadNameIfNew(from, contactProfile?.name, finalName);
+        demoReply = `✅ Thank you, *${finalName}*! I've shared your demo class request with our management team. They'll reach out to you directly on this WhatsApp number shortly. 😊`;
+      } else if (finalEmail && !finalName) {
+        await saveContactProfile({ phone: from, demoCollectedEmail: finalEmail });
+        demoReply = `Got your email! 😊 Could you also share your *full name*, please?\n\nExample: _John Doe_`;
+      } else if (finalName && !finalEmail) {
+        await saveContactProfile({ phone: from, name: finalName, demoCollectedName: finalName });
+        await syncLeadNameIfNew(from, contactProfile?.name, finalName);
+        demoReply = `Thanks *${finalName}*! 😊 Could you also share your *email address*?\n\nExample: _johndoe@gmail.com_`;
+      } else {
+        demoReply = `Please share your *full name* and *email address* so I can share this with our management team.\n\nExample: _John Doe, johndoe@gmail.com_`;
+      }
+
+      await sendWhatsAppMessageCurrent(from, demoReply);
+      await saveMessageCurrent({ from, text, reply: demoReply, timestamp: Date.now() });
+      return;
+    }
+
+    // ── 0d. B2B / vendor pitch — decline politely, never route into student flows ──
+    if (msgType === 'text' && isBusinessPitch(text)) {
+      const pitchReply = `Thank you for reaching out! 🙏\n\nWe're a student-focused training platform and don't take vendor or partnership meetings through this channel.\n\nFor business enquiries, please email *info@datacrumbs.org*.`;
+      await sendWhatsAppMessageCurrent(from, pitchReply);
+      await saveMessageCurrent({ from, text, reply: pitchReply, timestamp: Date.now() });
+      return;
+    }
+
+    // ── 0e. Discount collection trigger ──────────────────────────────────
+    // Fires when: (a) explicit affordability/discount request, OR
+    //             (b) vague sticker-shock reaction right after we quoted the fee, OR
+    //             (c) group discount already explained AND they're STILL asking about discount
+    const lastTwoReplies = recentMsgs.slice(-2).map(m => m.reply || '').join(' ');
+    const feeJustQuoted = /7,?499|7499|per month|\/month|\bfee\b|\bprice\b/i.test(lastTwoReplies);
+
+    const groupDiscountExplained = recentMsgs.some(m => m.reply && m.reply.includes('20%'));
+    const stillAskingDiscount = /\bdiscount\b/i.test(text);
+
+    const shouldCollectDiscount =
+      msgType === 'text' && (
+        needsAffordabilityHelp(text) ||
+        (feeJustQuoted && isPriceShockReaction(text)) ||
+        (groupDiscountExplained && stillAskingDiscount)
+      );
+
+    if (shouldCollectDiscount) {
+      const existingName = contactProfile?.name && looksLikeName(contactProfile.name) ? contactProfile.name : null;
+
+      // Already have a discount request on file for this contact — this is a follow-up
+      // (e.g. a counter-offer after management responded), not a fresh request. Update
+      // the existing record instead of re-asking for name/email or re-offering to forward.
+      if (contactProfile?.hasSubmittedDiscountRequest) {
+        try {
+          await updateDiscountRequestComment(from, text);
+          await updateDiscountRowComment(from, text);
+        } catch (err) {
+          console.error('Failed to update discount comment:', err instanceof Error ? err.message : err);
+        }
+        const followUpReply = `Got it${existingName ? `, *${existingName}*` : ''}! I've passed along your update to our management team. They'll follow up with you soon. 😊`;
+        await sendWhatsAppMessageCurrent(from, followUpReply);
+        await saveMessageCurrent({ from, text, reply: followUpReply, timestamp: Date.now() });
         return;
       }
 
-      // ── 5. Normal Gemini flow ─────────────────────────────────────────────
-      if (contactProfile?.nameAsked && !contactProfile?.name && looksLikeName(text)) {
-        await saveContactProfile({ phone: from, name: text.trim(), nameAsked: false });
-        await syncLeadNameIfNew(from, contactProfile?.name, text.trim());
+      const groupDiscountNote = `By the way, we also offer a special *20% group discount* when 2+ students enroll together! 😊\n\n`;
+      const greeting = existingName ? `I understand, *${existingName}*!` : `I understand your situation!`;
+      const discountReply = `${greeting}\n\n${groupDiscountNote}I can forward your request to our management team — they sometimes offer a special discount based on individual circumstances.\n\nWould you like me to forward this to them? (yes/no)`;
+      await saveContactProfile({
+        phone: from,
+        discountOfferPending: true,
+        discountOriginalMessage: text,
+        ...(existingName ? { discountCollectedName: existingName } : {}),
+      });
+      const sentDoc = await attachBrochureIfFirstContact(hadPriorMessages, from);
+      await sendWhatsAppMessageCurrent(from, discountReply);
+      await saveMessage({
+        from, text, reply: discountReply, timestamp: Date.now(),
+        ...(sentDoc ? { mediaType: 'document' as const } : {}),
+      });
+      return;
+    }
+
+    // ── 0e2. Demo class request trigger ──────────────────────────────────
+    // We DO offer demo classes — confirm that directly and go straight to
+    // collecting name/email (no yes/no offer step, unlike discount).
+    if (msgType === 'text' && wantsDemo(text)) {
+      const existingName = contactProfile?.name && looksLikeName(contactProfile.name) ? contactProfile.name : null;
+
+      // Already have a demo request on file — don't re-collect, just reassure
+      if (contactProfile?.hasSubmittedDemoRequest) {
+        const alreadyReply = `You're all set${existingName ? `, *${existingName}*` : ''}! We've already shared your demo class request with our management team — they'll reach out to you soon. 😊`;
+        await sendWhatsAppMessageCurrent(from, alreadyReply);
+        await saveMessageCurrent({ from, text, reply: alreadyReply, timestamp: Date.now() });
+        return;
       }
 
-      const history: GeminiHistory = recentMsgs.flatMap(m => [
-        ...(m.text && m.text !== '[image]' ? [{ role: 'user'  as const, parts: [{ text: m.text  }] }] : []),
-        ...(m.reply                         ? [{ role: 'model' as const, parts: [{ text: m.reply }] }] : []),
-      ]);
+      const demoReply = existingName
+        ? `Yes, we do offer demo classes, *${existingName}*! 😊 Please also share your *email address* so I can share this with our management team.\n\nExample: _johndoe@gmail.com_`
+        : `Yes, we do offer demo classes! 😊 Please share your *full name* and *email address* so I can share this with our management team.\n\nExample: _John Doe, johndoe@gmail.com_`;
 
-      let reply = await getAIReply(text, history, agent.systemPrompt);
+      await saveContactProfile({
+        phone: from,
+        demoPending: true,
+        demoOriginalMessage: text,
+        ...(existingName ? { demoCollectedName: existingName } : {}),
+      });
+      const sentDoc2 = await attachBrochureIfFirstContact(hadPriorMessages, from);
+      await sendWhatsAppMessageCurrent(from, demoReply);
+      await saveMessage({
+        from, text, reply: demoReply, timestamp: Date.now(),
+        ...(sentDoc2 ? { mediaType: 'document' as const } : {}),
+      });
+      return;
+    }
 
-      // Every first-ever message gets the brochure, whatever it says — greeting,
-      // direct question, anything. Catches any first message that reaches this
-      // normal-flow path (didn't match the pure-greeting or brochure-keyword shortcuts).
-      const sentDocWithReply = await attachBrochureIfFirstContact(hadPriorMessages, from, agent, receivingPhoneId);
-
+    // ── 0f. Conversational closer ("thanks", "ok", "no more questions", or a bare emoji) ──
+    // Checked BEFORE the enrollment-session branch so a stuck/abandoned session
+    // (e.g. someone started enrolling, got distracted, never provided name+email)
+    // can't hijack every later "ok"/"thanks" into runEnrollmentMachine's raw Gemini
+    // fallback, which has no concept of "don't repeat yourself" — that was producing
+    // a fresh verbose reply to every single closer instead of a short acknowledgment.
+    const isEmojiOnlyClose = msgType === 'text' && isPureEmojiMessage(text);
+    if (msgType === 'text' && (isConversationalCloser(text) || isEmojiOnlyClose)) {
+      const existingName = contactProfile?.name && looksLikeName(contactProfile.name) ? contactProfile.name : null;
+      let closerReply: string;
       if (contactProfile?.lastReplyWasClosing) {
-        await saveContactProfile({ phone: from, lastReplyWasClosing: false });
+        closerReply = '🙂';
+      } else if (isEmojiOnlyClose) {
+        closerReply = `Thank you so much${existingName ? `, *${existingName}*` : ''} for contacting! 😊 If you want to ask anything in the future or whenever, feel free to contact me anytime.`;
+      } else {
+        closerReply = `You're welcome${existingName ? `, *${existingName}*` : ''}! 😊 Feel free to reach out anytime you have more questions.`;
       }
+      await saveContactProfile({ phone: from, lastReplyWasClosing: true });
+      await sendWhatsAppMessageCurrent(from, closerReply);
+      await saveMessageCurrent({ from, text, reply: closerReply, timestamp: Date.now() });
+      return;
+    }
 
-      if (!contactProfile?.name && !contactProfile?.nameAsked && recentMsgs.length === 1) {
-        reply += '\n\nBy the way, may I know your name? 😊';
-        await saveContactProfile({ phone: from, nameAsked: true });
-      }
+    // ── 1. Active enrollment session ─────────────────────────────────────
+    if (session) {
+      const history: GeminiHistory = recentMsgs.flatMap(m => [
+        ...(m.text && m.text !== '[image]' ? [{ role: 'user' as const, parts: [{ text: m.text }] }] : []),
+        ...(m.reply ? [{ role: 'model' as const, parts: [{ text: m.reply }] }] : []),
+      ]);
 
-      // Backup: detect escalation phrasing in Gemini's reply.
-      // Gated on the USER's message being about money — otherwise a plain redirect
-      // to support (e.g. for an off-topic enquiry) would wrongly start the discount flow.
-      const isEscalation =
-        isMoneyContext(text) && (
-          /noted.{0,30}request/i.test(reply) ||
-          /forward.{0,30}(request|management)/i.test(reply) ||
-          /management.{0,50}reach.{0,20}out/i.test(reply) ||
-          /team.{0,50}will.{0,20}(reach|contact)/i.test(reply) ||
-          /contact our support team/i.test(reply)
-        );
+      const { reply, mediaUrl } = await runEnrollmentMachine(
+        from, session, msgType, text, imageId, imageMime, history, explicitName, contactProfile?.name, agent,
+      );
+      await sendWhatsAppMessageCurrent(from, reply);
+      const isMediaMsg = msgType === 'image' || msgType === 'document';
+      await saveMessageCurrent({
+        from,
+        text: isMediaMsg ? '[image]' : text,
+        reply,
+        timestamp: Date.now(),
+        ...(isMediaMsg ? { mediaType: 'image' as const, ...(mediaUrl ? { mediaUrl } : {}) } : {}),
+      });
+      return;
+    }
 
-      if (isEscalation) {
-        const existingName = contactProfile?.name && looksLikeName(contactProfile.name) ? contactProfile.name : null;
-
-        if (contactProfile?.hasSubmittedDiscountRequest) {
-          // Already have a discount request on file — treat this as a follow-up comment
+    // ── 2. Save non-text messages so they appear in the dashboard ────────
+    if (msgType !== 'text') {
+      if (msgType === 'image' || msgType === 'document') {
+        let mediaUrl: string | undefined;
+        if (imageId) {
           try {
-            await updateDiscountRequestComment(from, text);
-            await updateDiscountRowComment(from, text);
+            const { buffer, mimeType } = await downloadWhatsAppMedia(imageId);
+            const { fileId } = await uploadScreenshotToDrive(buffer, mimeType, from, Date.now());
+            mediaUrl = fileId;
           } catch (err) {
-            console.error('Failed to update discount comment:', err instanceof Error ? err.message : err);
+            console.error('Drive upload failed (non-enrollment):', err instanceof Error ? err.message : err);
           }
-          reply = `Got it${existingName ? `, *${existingName}*` : ''}! I've passed along your update to our management team. They'll follow up with you soon. 😊`;
-          await sendWhatsAppMessageCurrent(from, reply);
-          await saveMessageCurrent({ from, text, reply, timestamp: Date.now() });
-          return;
         }
-
-        const greeting = existingName ? `I understand, *${existingName}*!` : `I understand your situation!`;
-        reply = `${greeting} 😊 I can forward your request to our management team — they sometimes offer a special discount based on individual circumstances.\n\nWould you like me to forward this to them? (yes/no)`;
-        await saveContactProfile({
-          phone: from,
-          discountOfferPending: true,
-          discountOriginalMessage: text,
-          ...(existingName ? { discountCollectedName: existingName } : {}),
+        await attachBrochureIfFirstContact(hadPriorMessages, from, agent, receivingPhoneId);
+        const imgReply = 'Please type your question in text 😊';
+        await sendWhatsAppMessageCurrent(from, imgReply);
+        await saveMessageCurrent({
+          from, text: '[image]', reply: imgReply, timestamp: Date.now(),
+          mediaType: 'image',
+          ...(mediaUrl ? { mediaUrl } : {}),
         });
       }
+      return;
+    }
 
+    // ── 4. Enrollment intent ──────────────────────────────────────────────
+    if (wantsEnrollment(text)) {
+      const newSession: EnrollmentSession = {
+        phone: from,
+        state: 'collecting_name',
+        name: null,
+        email: null,
+        driveFileId: null,
+        driveFileUrl: null,
+        sheetRowIndex: null,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      const reply = `Great! I'll get you enrolled in the *4-Month AI & Data Science Bootcamp* 🎓\n\nPlease share your *full name* and *email address* together so we can get started!\n\nExample: _John Doe, johndoe@gmail.com_`;
+      await saveEnrollmentSession(newSession);
+      const sentDoc = await attachBrochureIfFirstContact(hadPriorMessages, from, agent, receivingPhoneId);
       await sendWhatsAppMessageCurrent(from, reply);
       await saveMessageCurrent({
         from, text, reply, timestamp: Date.now(),
-        ...(sentDocWithReply ? { mediaType: 'document' as const } : {}),
+        ...(sentDoc ? { mediaType: 'document' as const } : {}),
       });
-
-    } catch (err: unknown) {
-      console.error('Webhook error:', err instanceof Error ? err.message : err);
+      return;
     }
+
+    // ── 4b. First-ever pure greeting → send official welcome + brochure together ──
+    // Bypasses Gemini so the greeting text and the brochure attach are guaranteed
+    // to arrive together, deterministically, on this contact's very first message.
+    if (!hadPriorMessages && isPureGreeting(text)) {
+      let sentDoc = false;
+      try {
+        await sendWhatsAppDocumentCurrent(from);
+        sentDoc = true;
+      } catch (err) {
+        console.error('Failed to send brochure on first greeting:', err instanceof Error ? err.message : err);
+      }
+      await sendWhatsAppMessageCurrent(from, agent.welcomeGreeting);
+      await saveMessageCurrent({
+        from, text, reply: agent.welcomeGreeting, timestamp: Date.now(),
+        ...(sentDoc ? { mediaType: 'document' as const } : {}),
+      });
+      return;
+    }
+
+    // ── 5. Normal Gemini flow ─────────────────────────────────────────────
+    if (contactProfile?.nameAsked && !contactProfile?.name && looksLikeName(text)) {
+      await saveContactProfile({ phone: from, name: text.trim(), nameAsked: false });
+      await syncLeadNameIfNew(from, contactProfile?.name, text.trim());
+    }
+
+    const history: GeminiHistory = recentMsgs.flatMap(m => [
+      ...(m.text && m.text !== '[image]' ? [{ role: 'user' as const, parts: [{ text: m.text }] }] : []),
+      ...(m.reply ? [{ role: 'model' as const, parts: [{ text: m.reply }] }] : []),
+    ]);
+
+    let reply = await getAIReply(text, history, agent.systemPrompt);
+
+    // Every first-ever message gets the brochure, whatever it says — greeting,
+    // direct question, anything. Catches any first message that reaches this
+    // normal-flow path (didn't match the pure-greeting or brochure-keyword shortcuts).
+    const sentDocWithReply = await attachBrochureIfFirstContact(hadPriorMessages, from, agent, receivingPhoneId);
+
+    if (contactProfile?.lastReplyWasClosing) {
+      await saveContactProfile({ phone: from, lastReplyWasClosing: false });
+    }
+
+    if (!contactProfile?.name && !contactProfile?.nameAsked && recentMsgs.length === 1) {
+      reply += '\n\nBy the way, may I know your name? 😊';
+      await saveContactProfile({ phone: from, nameAsked: true });
+    }
+
+    // Backup: detect escalation phrasing in Gemini's reply.
+    // Gated on the USER's message being about money — otherwise a plain redirect
+    // to support (e.g. for an off-topic enquiry) would wrongly start the discount flow.
+    const isEscalation =
+      isMoneyContext(text) && (
+        /noted.{0,30}request/i.test(reply) ||
+        /forward.{0,30}(request|management)/i.test(reply) ||
+        /management.{0,50}reach.{0,20}out/i.test(reply) ||
+        /team.{0,50}will.{0,20}(reach|contact)/i.test(reply) ||
+        /contact our support team/i.test(reply)
+      );
+
+    if (isEscalation) {
+      const existingName = contactProfile?.name && looksLikeName(contactProfile.name) ? contactProfile.name : null;
+
+      if (contactProfile?.hasSubmittedDiscountRequest) {
+        // Already have a discount request on file — treat this as a follow-up comment
+        try {
+          await updateDiscountRequestComment(from, text);
+          await updateDiscountRowComment(from, text);
+        } catch (err) {
+          console.error('Failed to update discount comment:', err instanceof Error ? err.message : err);
+        }
+        reply = `Got it${existingName ? `, *${existingName}*` : ''}! I've passed along your update to our management team. They'll follow up with you soon. 😊`;
+        await sendWhatsAppMessageCurrent(from, reply);
+        await saveMessageCurrent({ from, text, reply, timestamp: Date.now() });
+        return;
+      }
+
+      const greeting = existingName ? `I understand, *${existingName}*!` : `I understand your situation!`;
+      reply = `${greeting} 😊 I can forward your request to our management team — they sometimes offer a special discount based on individual circumstances.\n\nWould you like me to forward this to them? (yes/no)`;
+      await saveContactProfile({
+        phone: from,
+        discountOfferPending: true,
+        discountOriginalMessage: text,
+        ...(existingName ? { discountCollectedName: existingName } : {}),
+      });
+    }
+
+    await sendWhatsAppMessageCurrent(from, reply);
+    await saveMessageCurrent({
+      from, text, reply, timestamp: Date.now(),
+      ...(sentDocWithReply ? { mediaType: 'document' as const } : {}),
+    });
+
+  } catch (err: unknown) {
+    console.error('Webhook error:', err instanceof Error ? err.message : err);
+  }
 
   return NextResponse.json({}, { status: 200 });
 }
