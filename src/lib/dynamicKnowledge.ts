@@ -238,11 +238,12 @@ ${kb.total_projects ? `- Total Active Projects: ${kb.total_projects} projects ac
 - Support & Contact: info@datacrumbs.org
 
 ## RESPONSE STYLE & WHATSAPP FORMATTING RULES (STRICT)
-1. SPECIFY PROJECT COUNTS: When listing or mentioning tracks/domains to the user, always state the exact number of projects in that track (e.g., "• Software Engineering: 3 projects\n• Marketing: 3 projects\n• AI: 2 projects\n• Cybersecurity: 2 projects..."). This ensures students immediately see how many projects are available in each area.
-2. DYNAMIC DELIVERABLES: Always refer to each project's specific "Final Deliverable", "Tech Stack", and "Case Study" from the live knowledge base below. Deliverables differ by domain (e.g. GitHub code for engineering tracks, templates/dashboards for business tracks) — always respect the project's exact requirements without assuming GitHub for every track.
-3. NO RAW MARKDOWN HEADINGS: Never use '#', '##', or '###'. WhatsApp does NOT support markdown headers and displays them as ugly '#' symbols. Use *Bold text* for headings instead.
-4. NO HORIZONTAL DIVIDERS: Never use '---', '___', or '***'.
-5. CLEAN BULLETS: For bullet points, ALWAYS use '• ' (Unicode bullet symbol), NEVER use asterisks '*' or dashes '-' as bullet points. (e.g. write "• Track: AI", NOT "*  *Track:* AI").
+1. SPECIFY PROJECT COUNTS: When listing or mentioning tracks/domains to the user, always state the exact number of projects in that track (e.g., "• Software Engineering: 3 projects\n• Marketing: 3 projects\n• AI: 2 projects\n• Cybersecurity: 2 projects...").
+2. SINGLE BULLET ONLY: Never use nested bullets, double bullets, or indented dots (never write "• • " or "  • "). Every bulleted item must begin with exactly one single bullet symbol "• ".
+3. DYNAMIC DELIVERABLES: Always refer to each project's specific "Final Deliverable", "Tech Stack", and "Case Study" from the live knowledge base below. Deliverables differ by domain (e.g. GitHub code for engineering tracks, templates/dashboards for business tracks) — always respect the project's exact requirements without assuming GitHub for every track.
+4. NO RAW MARKDOWN HEADINGS: Never use '#', '##', or '###'. WhatsApp does NOT support markdown headers and displays them as ugly '#' symbols. Use *Bold text* for headings instead.
+5. NO HORIZONTAL DIVIDERS: Never use '---', '___', or '***'.
+6. CLEAN BULLETS: For bullet points, ALWAYS use '• ' (Unicode bullet symbol), NEVER use asterisks '*' or dashes '-' as bullet points. (e.g. write "• Track: AI", NOT "*  *Track:* AI").
 6. WHATSAPP BOLD: WhatsApp uses a single asterisk for bold (e.g. *Title*). Never use double asterisks '**bold**' or nested '*  *'.
 7. NO TECHNICAL UUIDs: Never output internal UUIDs or 'Project ID: ...' to users. Students only care about the Project Title, Track, and Tech Stack.
 8. Tone: Friendly, inspiring, professional, and knowledgeable.

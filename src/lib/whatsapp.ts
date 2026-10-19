@@ -88,14 +88,15 @@ export function formatForWhatsApp(text: string): string {
   // 3. Convert markdown headers (### Title, ## Title) to bold text (*Title*)
   cleaned = cleaned.replace(/^[ \t]*#{1,6}[ \t]+(.*)$/gm, (_m, header) => `*${header.trim()}*`);
 
-  // 4. Convert markdown list asterisks or dashes at start of line to clean bullet points
-  cleaned = cleaned.replace(/^[ \t]*[*+-][ \t]+/gm, '• ');
+  // 4. Collapse any combination of leading bullets, asterisks, dashes, or dots into a SINGLE clean bullet
+  // e.g. "  * • ", "• • ", "· · ", "- • ", "• - " -> "• "
+  cleaned = cleaned.replace(/^[ \t]*([*+•·-][ \t]*)+/gm, '• ');
 
-  // 5. Convert markdown double/triple asterisks (**bold**) to WhatsApp single asterisk (*bold*)
+  // 5. Also collapse any remaining consecutive bullets or dots within lines
+  cleaned = cleaned.replace(/[•·][ \t]*[•·]+/g, '•');
+
+  // 6. Convert markdown double/triple asterisks (**bold**) to WhatsApp single asterisk (*bold*)
   cleaned = cleaned.replace(/\*{2,}/g, '*');
-
-  // 6. Clean up trailing or leading spaces around bullets
-  cleaned = cleaned.replace(/^•[ \t]*/gm, '• ');
 
   // 7. Clean up excessive blank lines (more than 2 consecutive newlines)
   cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
