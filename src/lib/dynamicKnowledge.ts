@@ -210,19 +210,16 @@ export async function getRelevantKnowledgeChunks(userMessage: string, maxChunks 
  * 3. Dynamic relevant project chunks retrieved for the specific user query
  * 4. Guidelines for formatting and tone
  */
-export async function buildInternshipSystemPrompt(userMessage?: string): Promise<string> {
+/**
+ * Builds the base system prompt (program guidelines, track counts, rules, links)
+ * suitable for viewing and editing in the Admin Panel.
+ */
+export async function buildInternshipBasePrompt(): Promise<string> {
   const kb = await getInternshipKnowledge();
 
   const domainList = kb.available_domains && kb.available_domains.length > 0
     ? kb.available_domains.join(', ')
     : '';
-
-  let relevantKnowledge = '';
-  if (userMessage) {
-    relevantKnowledge = await getRelevantKnowledgeChunks(userMessage);
-  } else if (kb.knowledge_chunks && kb.knowledge_chunks.length > 0) {
-    relevantKnowledge = kb.knowledge_chunks.slice(0, 3).map(c => c.chunk_content).join('\n\n---\n\n');
-  }
 
   const domainBreakdownText = kb.domain_breakdown
     ? Object.entries(kb.domain_breakdown)
@@ -244,10 +241,31 @@ ${kb.total_projects ? `- Total Active Projects: ${kb.total_projects} projects ac
 4. NO RAW MARKDOWN HEADINGS: Never use '#', '##', or '###'. WhatsApp does NOT support markdown headers and displays them as ugly '#' symbols. Use *Bold text* for headings instead.
 5. NO HORIZONTAL DIVIDERS: Never use '---', '___', or '***'.
 6. CLEAN BULLETS: For bullet points, ALWAYS use '• ' (Unicode bullet symbol), NEVER use asterisks '*' or dashes '-' as bullet points. (e.g. write "• Track: AI", NOT "*  *Track:* AI").
-6. WHATSAPP BOLD: WhatsApp uses a single asterisk for bold (e.g. *Title*). Never use double asterisks '**bold**' or nested '*  *'.
-7. NO TECHNICAL UUIDs: Never output internal UUIDs or 'Project ID: ...' to users. Students only care about the Project Title, Track, and Tech Stack.
-8. Tone: Friendly, inspiring, professional, and knowledgeable.
-9. If a user asks how to apply or register, direct them to: https://internship.datacrumbs.org
+7. WHATSAPP BOLD: WhatsApp uses a single asterisk for bold (e.g. *Title*). Never use double asterisks '**bold**' or nested '*  *'.
+8. NO TECHNICAL UUIDs: Never output internal UUIDs or 'Project ID: ...' to users. Students only care about the Project Title, Track, and Tech Stack.
+9. Tone: Friendly, inspiring, professional, and knowledgeable.
+10. If a user asks how to apply or register, direct them to: https://internship.datacrumbs.org`;
+}
+
+/**
+ * Builds the complete system prompt for Gemini:
+ * Uses the base prompt (either from MongoDB admin save or default),
+ * and dynamically appends relevant project chunks for the specific user message.
+ */
+export async function buildInternshipSystemPrompt(userMessage?: string, basePromptOverride?: string): Promise<string> {
+  const base = (basePromptOverride && basePromptOverride.trim()) || (await buildInternshipBasePrompt());
+
+  let relevantKnowledge = '';
+  if (userMessage) {
+    relevantKnowledge = await getRelevantKnowledgeChunks(userMessage);
+  } else {
+    const kb = await getInternshipKnowledge();
+    if (kb.knowledge_chunks && kb.knowledge_chunks.length > 0) {
+      relevantKnowledge = kb.knowledge_chunks.slice(0, 3).map(c => c.chunk_content).join('\n\n---\n\n');
+    }
+  }
+
+  return `${base}
 
 ## DYNAMIC KNOWLEDGE BASE & RELEVANT PROJECTS (FROM LIVE API):
 ${relevantKnowledge}

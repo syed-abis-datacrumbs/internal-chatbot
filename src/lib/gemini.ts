@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { buildInternshipSystemPrompt } from './dynamicKnowledge';
+import { getSystemPrompt } from './redis';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
@@ -15,8 +16,12 @@ export async function getAIReply(
 ): Promise<string> {
   let systemInstruction: string;
   try {
-    if (systemPromptOverride && !systemPromptOverride.includes('Cortexa AI Internship Assistant')) {
-      systemInstruction = `${systemPromptOverride}\n\n${await buildInternshipSystemPrompt(userMessage)}`;
+    // 1. Check if admin saved a custom prompt in the Admin Panel (stored in MongoDB)
+    const savedPrompt = await getSystemPrompt();
+    const effectiveBase = savedPrompt || systemPromptOverride;
+
+    if (effectiveBase) {
+      systemInstruction = await buildInternshipSystemPrompt(userMessage, effectiveBase);
     } else {
       systemInstruction = await buildInternshipSystemPrompt(userMessage);
     }

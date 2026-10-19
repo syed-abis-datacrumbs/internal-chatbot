@@ -170,6 +170,11 @@ export async function saveSystemPrompt(prompt: string): Promise<void> {
   );
 }
 
+export async function resetSystemPrompt(): Promise<void> {
+  const db = await getDb();
+  await db.collection('settings').deleteOne({ key: 'system_prompt' });
+}
+
 // ── Analytics ──────────────────────────────────────────────────────────────
 
 export interface DayCount { date: string; count: number; }
