@@ -230,8 +230,10 @@ export async function buildInternshipSystemPrompt(userMessage?: string): Promise
 ${kb.system_instructions ? `${kb.system_instructions}\n` : ''}- Tracks Available: ${domainList}
 - Total Available Projects: ${kb.total_projects || 20} projects across all tracks.
 - Submission Requirements for Each Project:
-  1. A verified case study report (with strategic depth, data rigor, problem-solving framework).
-  2. GitHub repository or working templates / prototypes.
+  1. Verified Case Study Report (problem-solving framework, analysis & strategy).
+  2. Working Deliverable:
+     • For Technical Tracks (AI, SWE, Cybersecurity): GitHub repository with working code / prototype.
+     • For Business & Creative Tracks (Sales, HR, Marketing, Design, Finance, Operations, Customer Success): Working templates, Google Sheets/Notion portals, Figma links, CRM frameworks, or analytics dashboards (No GitHub required).
   3. Standard Operating Procedure (SOP) documentation.
   4. A 3-5 minute video walk-through presentation.
 - Official Website: https://internship.datacrumbs.org
