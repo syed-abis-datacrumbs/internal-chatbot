@@ -217,25 +217,14 @@ export async function getRelevantKnowledgeChunks(userMessage: string, maxChunks 
 export async function buildInternshipBasePrompt(): Promise<string> {
   const kb = await getInternshipKnowledge();
 
-  const domainList = kb.available_domains && kb.available_domains.length > 0
-    ? kb.available_domains.join(', ')
-    : '';
-
-  const domainBreakdownText = kb.domain_breakdown
-    ? Object.entries(kb.domain_breakdown)
-        .map(([domain, count]) => `${domain.toUpperCase()} (${count} ${count === 1 ? 'project' : 'projects'})`)
-        .join(', ')
-    : domainList;
-
   return `You are the official Internship Assistant for "${kb.program || 'Cortexa AI Changemakers Internship 2026'}".
 
-## LIVE PROGRAM GUIDELINES (FROM SYSTEM API)
-${kb.system_instructions ? `${kb.system_instructions}\n` : ''}- Available Tracks & Project Counts: ${domainBreakdownText}
-${kb.total_projects ? `- Total Active Projects: ${kb.total_projects} projects across all tracks\n` : ''}- Official Portal: https://internship.datacrumbs.org
+## PROGRAM GUIDELINES
+${kb.system_instructions ? `${kb.system_instructions}\n` : ''}- Official Portal: https://internship.datacrumbs.org
 - Support & Contact: info@datacrumbs.org
 
 ## RESPONSE STYLE & WHATSAPP FORMATTING RULES (STRICT)
-1. SPECIFY PROJECT COUNTS: When listing or mentioning tracks/domains to the user, always state the exact number of projects in that track (e.g., "• Software Engineering: 3 projects\n• Marketing: 3 projects\n• AI: 2 projects\n• Cybersecurity: 2 projects...").
+1. SPECIFY PROJECT COUNTS: When listing or mentioning tracks/domains to the user, always state the exact number of projects in that track using the real-time project counts provided below (e.g., "• Software Engineering: 3 projects\n• Marketing: 3 projects\n• AI: 2 projects\n• Cybersecurity: 2 projects...").
 2. SINGLE BULLET ONLY: Never use nested bullets, double bullets, or indented dots (never write "• • " or "  • "). Every bulleted item must begin with exactly one single bullet symbol "• ".
 3. DYNAMIC DELIVERABLES: Always refer to each project's specific "Final Deliverable", "Tech Stack", and "Case Study" from the live knowledge base below. Deliverables differ by domain (e.g. GitHub code for engineering tracks, templates/dashboards for business tracks) — always respect the project's exact requirements without assuming GitHub for every track.
 4. NO RAW MARKDOWN HEADINGS: Never use '#', '##', or '###'. WhatsApp does NOT support markdown headers and displays them as ugly '#' symbols. Use *Bold text* for headings instead.
@@ -249,23 +238,37 @@ ${kb.total_projects ? `- Total Active Projects: ${kb.total_projects} projects ac
 
 /**
  * Builds the complete system prompt for Gemini:
- * Uses the base prompt (either from MongoDB admin save or default),
- * and dynamically appends relevant project chunks for the specific user message.
+ * 1. Uses the base prompt (either from MongoDB admin save or default)
+ * 2. ALWAYS dynamically appends live program data (tracks, project counts) from the portal API
+ * 3. Dynamically appends relevant project knowledge chunks matching the user's inquiry
  */
 export async function buildInternshipSystemPrompt(userMessage?: string, basePromptOverride?: string): Promise<string> {
   const base = (basePromptOverride && basePromptOverride.trim()) || (await buildInternshipBasePrompt());
+  const kb = await getInternshipKnowledge();
+
+  const domainBreakdownText = kb.domain_breakdown
+    ? Object.entries(kb.domain_breakdown)
+        .map(([domain, count]) => `${domain.toUpperCase()} (${count} ${count === 1 ? 'project' : 'projects'})`)
+        .join(', ')
+    : (kb.available_domains?.join(', ') || '');
+
+  const totalCount = kb.total_projects || (kb.domain_breakdown ? Object.values(kb.domain_breakdown).reduce((a, b) => a + b, 0) : 20);
 
   let relevantKnowledge = '';
   if (userMessage) {
     relevantKnowledge = await getRelevantKnowledgeChunks(userMessage);
-  } else {
-    const kb = await getInternshipKnowledge();
-    if (kb.knowledge_chunks && kb.knowledge_chunks.length > 0) {
-      relevantKnowledge = kb.knowledge_chunks.slice(0, 3).map(c => c.chunk_content).join('\n\n---\n\n');
-    }
+  } else if (kb.knowledge_chunks && kb.knowledge_chunks.length > 0) {
+    relevantKnowledge = kb.knowledge_chunks.slice(0, 3).map(c => c.chunk_content).join('\n\n---\n\n');
   }
 
   return `${base}
+
+## REAL-TIME PROGRAM & TRACK DATA (AUTOMATICALLY FETCHED FROM LIVE PORTAL):
+- Program: ${kb.program || 'Cortexa AI Changemakers Internship 2026'}
+- Total Active Projects: ${totalCount} projects across all tracks
+- Live Tracks & Project Counts: ${domainBreakdownText}
+- Official Portal: https://internship.datacrumbs.org
+- Support & Contact: info@datacrumbs.org
 
 ## DYNAMIC KNOWLEDGE BASE & RELEVANT PROJECTS (FROM LIVE API):
 ${relevantKnowledge}
