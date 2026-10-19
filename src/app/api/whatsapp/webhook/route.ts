@@ -541,6 +541,9 @@ export async function POST(req: NextRequest) {
     const receivingPhoneId = value?.metadata?.phone_number_id as string | undefined;
     const agent = getAgentByPhoneId(receivingPhoneId);
     const message = value?.messages?.[0];
+
+    console.log('[webhook] POST received | phoneId:', receivingPhoneId, '| hasMessage:', !!message, '| from:', message?.from, '| type:', message?.type);
+
     if (!message) return NextResponse.json({}, { status: 200 });
 
     const from = message.from as string;
@@ -593,7 +596,7 @@ export async function POST(req: NextRequest) {
       if (msgType === 'text' && text) {
         await saveMessageCurrent({ from, text, reply: '', timestamp: Date.now() });
       }
-      return;
+      return NextResponse.json({}, { status: 200 });
     }
 
     // ── 0b. Brochure shortcut — checked before enrollment so ALL users get the PDF ──
@@ -610,7 +613,7 @@ export async function POST(req: NextRequest) {
       }
       await sendWhatsAppMessageCurrent(from, reply);
       await saveMessageCurrent({ from, text, reply, timestamp: Date.now(), ...(sentDoc ? { mediaType: 'document' as const } : {}) });
-      return;
+      return NextResponse.json({}, { status: 200 });
     }
 
     // Conversation context — fetched once and reused by every branch below
@@ -648,7 +651,7 @@ export async function POST(req: NextRequest) {
 
       await sendWhatsAppMessageCurrent(from, offerReply);
       await saveMessageCurrent({ from, text, reply: offerReply, timestamp: Date.now() });
-      return;
+      return NextResponse.json({}, { status: 200 });
     }
 
     // ── 0c. Discount collection state ────────────────────────────────────
@@ -693,7 +696,7 @@ export async function POST(req: NextRequest) {
 
       await sendWhatsAppMessageCurrent(from, discountReply);
       await saveMessageCurrent({ from, text, reply: discountReply, timestamp: Date.now() });
-      return;
+      return NextResponse.json({}, { status: 200 });
     }
 
     // ── 0c2. Demo class collection state ─────────────────────────────────
@@ -737,7 +740,7 @@ export async function POST(req: NextRequest) {
 
       await sendWhatsAppMessageCurrent(from, demoReply);
       await saveMessageCurrent({ from, text, reply: demoReply, timestamp: Date.now() });
-      return;
+      return NextResponse.json({}, { status: 200 });
     }
 
     // ── 0d. B2B / vendor pitch — decline politely, never route into student flows ──
@@ -745,7 +748,7 @@ export async function POST(req: NextRequest) {
       const pitchReply = `Thank you for reaching out! 🙏\n\nWe're a student-focused training platform and don't take vendor or partnership meetings through this channel.\n\nFor business enquiries, please email *info@datacrumbs.org*.`;
       await sendWhatsAppMessageCurrent(from, pitchReply);
       await saveMessageCurrent({ from, text, reply: pitchReply, timestamp: Date.now() });
-      return;
+      return NextResponse.json({}, { status: 200 });
     }
 
     // ── 0e. Discount collection trigger ──────────────────────────────────
@@ -781,7 +784,7 @@ export async function POST(req: NextRequest) {
         const followUpReply = `Got it${existingName ? `, *${existingName}*` : ''}! I've passed along your update to our management team. They'll follow up with you soon. 😊`;
         await sendWhatsAppMessageCurrent(from, followUpReply);
         await saveMessageCurrent({ from, text, reply: followUpReply, timestamp: Date.now() });
-        return;
+        return NextResponse.json({}, { status: 200 });
       }
 
       const groupDiscountNote = `By the way, we also offer a special *20% group discount* when 2+ students enroll together! 😊\n\n`;
@@ -799,7 +802,7 @@ export async function POST(req: NextRequest) {
         from, text, reply: discountReply, timestamp: Date.now(),
         ...(sentDoc ? { mediaType: 'document' as const } : {}),
       });
-      return;
+      return NextResponse.json({}, { status: 200 });
     }
 
     // ── 0e2. Demo class request trigger ──────────────────────────────────
@@ -813,7 +816,7 @@ export async function POST(req: NextRequest) {
         const alreadyReply = `You're all set${existingName ? `, *${existingName}*` : ''}! We've already shared your demo class request with our management team — they'll reach out to you soon. 😊`;
         await sendWhatsAppMessageCurrent(from, alreadyReply);
         await saveMessageCurrent({ from, text, reply: alreadyReply, timestamp: Date.now() });
-        return;
+        return NextResponse.json({}, { status: 200 });
       }
 
       const demoReply = existingName
@@ -832,7 +835,7 @@ export async function POST(req: NextRequest) {
         from, text, reply: demoReply, timestamp: Date.now(),
         ...(sentDoc2 ? { mediaType: 'document' as const } : {}),
       });
-      return;
+      return NextResponse.json({}, { status: 200 });
     }
 
     // ── 0f. Conversational closer ("thanks", "ok", "no more questions", or a bare emoji) ──
@@ -855,7 +858,7 @@ export async function POST(req: NextRequest) {
       await saveContactProfile({ phone: from, lastReplyWasClosing: true });
       await sendWhatsAppMessageCurrent(from, closerReply);
       await saveMessageCurrent({ from, text, reply: closerReply, timestamp: Date.now() });
-      return;
+      return NextResponse.json({}, { status: 200 });
     }
 
     // ── 1. Active enrollment session ─────────────────────────────────────
@@ -877,7 +880,7 @@ export async function POST(req: NextRequest) {
         timestamp: Date.now(),
         ...(isMediaMsg ? { mediaType: 'image' as const, ...(mediaUrl ? { mediaUrl } : {}) } : {}),
       });
-      return;
+      return NextResponse.json({}, { status: 200 });
     }
 
     // ── 2. Save non-text messages so they appear in the dashboard ────────
@@ -902,7 +905,7 @@ export async function POST(req: NextRequest) {
           ...(mediaUrl ? { mediaUrl } : {}),
         });
       }
-      return;
+      return NextResponse.json({}, { status: 200 });
     }
 
     // ── 4. Enrollment intent ──────────────────────────────────────────────
@@ -926,7 +929,7 @@ export async function POST(req: NextRequest) {
         from, text, reply, timestamp: Date.now(),
         ...(sentDoc ? { mediaType: 'document' as const } : {}),
       });
-      return;
+      return NextResponse.json({}, { status: 200 });
     }
 
     // ── 4b. First-ever pure greeting → send official welcome + brochure together ──
@@ -945,7 +948,7 @@ export async function POST(req: NextRequest) {
         from, text, reply: agent.welcomeGreeting, timestamp: Date.now(),
         ...(sentDoc ? { mediaType: 'document' as const } : {}),
       });
-      return;
+      return NextResponse.json({}, { status: 200 });
     }
 
     // ── 5. Normal Gemini flow ─────────────────────────────────────────────
@@ -1001,7 +1004,7 @@ export async function POST(req: NextRequest) {
         reply = `Got it${existingName ? `, *${existingName}*` : ''}! I've passed along your update to our management team. They'll follow up with you soon. 😊`;
         await sendWhatsAppMessageCurrent(from, reply);
         await saveMessageCurrent({ from, text, reply, timestamp: Date.now() });
-        return;
+        return NextResponse.json({}, { status: 200 });
       }
 
       const greeting = existingName ? `I understand, *${existingName}*!` : `I understand your situation!`;
