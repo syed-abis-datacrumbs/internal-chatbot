@@ -668,3 +668,115 @@ export async function getBrochure(): Promise<{ data: Buffer; filename: string; u
     uploadedAt: doc.value.uploadedAt as number,
   };
 }
+
+// ── Contact Directory & Lead Exports ─────────────────────────────────────────
+
+export interface ContactDirectoryItem {
+  phone: string;
+  name: string | null;
+  email: string | null;
+  firstSeenAt: number;
+  lastActiveAt: number;
+  totalMessages: number;
+  userMessagesCount: number;
+  botRepliesCount: number;
+  lastUserMessage: string;
+  lastBotReply: string;
+  botDisabled: boolean;
+}
+
+export async function getContactsDirectory(): Promise<ContactDirectoryItem[]> {
+  try {
+    const db = await getDb();
+
+    const [msgs, profiles] = await Promise.all([
+      db.collection<ChatMessage>('wa_messages').find({}).sort({ timestamp: 1 }).toArray(),
+      db.collection<ContactProfile>('contact_profiles').find({}).toArray(),
+    ]);
+
+    const profileMap = new Map<string, ContactProfile>();
+    for (const p of profiles) {
+      if (p.phone) profileMap.set(p.phone, p);
+    }
+
+    const phoneMap = new Map<string, {
+      firstSeenAt: number;
+      lastActiveAt: number;
+      totalMessages: number;
+      userMessagesCount: number;
+      botRepliesCount: number;
+      lastUserMessage: string;
+      lastBotReply: string;
+    }>();
+
+    for (const m of msgs) {
+      if (!m.from) continue;
+      const existing = phoneMap.get(m.from);
+      const hasUserMsg = Boolean(m.text && m.text.trim());
+      const hasReply = Boolean(m.reply && m.reply.trim());
+
+      if (!existing) {
+        phoneMap.set(m.from, {
+          firstSeenAt: m.timestamp || Date.now(),
+          lastActiveAt: m.timestamp || Date.now(),
+          totalMessages: 1,
+          userMessagesCount: hasUserMsg ? 1 : 0,
+          botRepliesCount: hasReply ? 1 : 0,
+          lastUserMessage: m.text || '',
+          lastBotReply: m.reply || '',
+        });
+      } else {
+        existing.lastActiveAt = Math.max(existing.lastActiveAt, m.timestamp || 0);
+        existing.firstSeenAt = Math.min(existing.firstSeenAt, m.timestamp || Date.now());
+        existing.totalMessages += 1;
+        if (hasUserMsg) {
+          existing.userMessagesCount += 1;
+          existing.lastUserMessage = m.text || existing.lastUserMessage;
+        }
+        if (hasReply) {
+          existing.botRepliesCount += 1;
+          existing.lastBotReply = m.reply || existing.lastBotReply;
+        }
+      }
+    }
+
+    for (const p of profiles) {
+      if (!phoneMap.has(p.phone)) {
+        phoneMap.set(p.phone, {
+          firstSeenAt: p.updatedAt || Date.now(),
+          lastActiveAt: p.updatedAt || Date.now(),
+          totalMessages: 0,
+          userMessagesCount: 0,
+          botRepliesCount: 0,
+          lastUserMessage: '',
+          lastBotReply: '',
+        });
+      }
+    }
+
+    const items: ContactDirectoryItem[] = [];
+    for (const [phone, stats] of phoneMap.entries()) {
+      const profile = profileMap.get(phone);
+      items.push({
+        phone,
+        name: profile?.name || null,
+        email: profile?.discountCollectedEmail || profile?.demoCollectedEmail || null,
+        firstSeenAt: stats.firstSeenAt,
+        lastActiveAt: stats.lastActiveAt,
+        totalMessages: stats.totalMessages,
+        userMessagesCount: stats.userMessagesCount,
+        botRepliesCount: stats.botRepliesCount,
+        lastUserMessage: stats.lastUserMessage,
+        lastBotReply: stats.lastBotReply,
+        botDisabled: Boolean(profile?.botDisabled),
+      });
+    }
+
+    items.sort((a, b) => b.lastActiveAt - a.lastActiveAt);
+    return items;
+  } catch (err) {
+    console.error('Failed to load contacts directory:', err);
+    return [];
+  }
+}
+
