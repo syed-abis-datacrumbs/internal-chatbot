@@ -26,12 +26,17 @@ export async function getAIReply(
   }
 
   const tryReply = async (hist: HistoryMessage[]): Promise<string | null> => {
-    const chat   = model.startChat({ history: hist });
-    const result = await chat.sendMessage(userMessage);
     try {
-      return result.response.text();
-    } catch {
-      console.warn('[gemini] blocked:', result.response.candidates?.[0]?.finishReason);
+      const chat   = model.startChat({ history: hist });
+      const result = await chat.sendMessage(userMessage);
+      try {
+        return result.response.text();
+      } catch {
+        console.warn('[gemini] blocked:', result.response.candidates?.[0]?.finishReason);
+        return null;
+      }
+    } catch (err) {
+      console.error('[gemini] API call failed:', err instanceof Error ? err.message : err);
       return null;
     }
   };

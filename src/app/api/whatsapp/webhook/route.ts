@@ -962,7 +962,13 @@ export async function POST(req: NextRequest) {
       ...(m.reply ? [{ role: 'model' as const, parts: [{ text: m.reply }] }] : []),
     ]);
 
-    let reply = await getAIReply(text, history, agent.systemPrompt);
+    let reply: string;
+    try {
+      reply = await getAIReply(text, history, agent.systemPrompt);
+    } catch (aiErr) {
+      console.error('[webhook] AI reply error:', aiErr);
+      reply = `Thank you for reaching out! Our team is available to help answer your questions. Feel free to ask about our course details, syllabus, or fee plan (Rs. 7,499/mo), or reach our team directly at *+92 329 2020497*. 😊`;
+    }
 
     // Every first-ever message gets the brochure, whatever it says — greeting,
     // direct question, anything. Catches any first message that reaches this
