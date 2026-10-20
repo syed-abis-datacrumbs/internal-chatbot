@@ -101,12 +101,6 @@ export default function OverviewDashboardClient({ stats }: { stats: Stats }) {
   const compCircumference = 2 * Math.PI * compRadius;
   const compOffset = compCircumference - (compPct / 100) * compCircumference;
 
-  // ── 5. Middle-Center Semi-Circle Gauge Math ──────────────────────────────
-  // Drop-off rate (12% to 25% typical)
-  const dropRate = stats.funnel.stages[1]?.dropoffPct || 14.2;
-  const semiRadius = 55;
-  const semiCircumference = Math.PI * semiRadius;
-  const semiOffset = semiCircumference - (Math.min(dropRate, 100) / 100) * semiCircumference;
 
   // ── 6. Middle-Right Benchmark Column Math ────────────────────────────────
   // Sample 6 representative hours: 10 AM, 1 PM, 4 PM, 7 PM, 9 PM, 11 PM
@@ -361,94 +355,6 @@ export default function OverviewDashboardClient({ stats }: { stats: Stats }) {
             </div>
           </div>
 
-          {/* ─────────────────────────────────────────────────────────────
-              CARD 4 (Middle-Left): Horizontal Pill Bars
-             ───────────────────────────────────────────────────────────── */}
-          <div style={{ ...glass, borderRadius: 16, padding: '20px 22px', height: 260, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxSizing: 'border-box' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <h3 style={{ fontSize: 15, fontWeight: 700, color: '#fff', margin: 0 }}>Top Inquired Modules</h3>
-                <p style={{ fontSize: 11, color: '#9ca3af', margin: '3px 0 0' }}>Curriculum interest across tracks</p>
-              </div>
-              <span style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', background: '#121c17', padding: '2px 8px', borderRadius: 4, border: '1px solid #1f2d24' }}>
-                4 MODULES
-              </span>
-            </div>
-
-            {/* Horizontal Bars */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, height: 160, justifyContent: 'center' }}>
-              {[
-                { label: 'AI & Data Science', pct: 92, color: NEON },
-                { label: 'GenAI & Agentic AI', pct: 78, color: CYAN },
-                { label: 'Python & SQL Tools', pct: 60, color: YELLOW },
-                { label: 'Guaranteed Internship', pct: 45, color: PURPLE },
-              ].map(item => (
-                <div key={item.label}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
-                    <span style={{ color: '#d1d5db', fontWeight: 500 }}>{item.label}</span>
-                    <span style={{ color: item.color, fontWeight: 700 }}>{item.pct}%</span>
-                  </div>
-                  <div style={{ width: '100%', height: 10, background: '#16221b', borderRadius: 6, overflow: 'hidden' }}>
-                    <div
-                      style={{
-                        width: `${item.pct}%`,
-                        height: '100%',
-                        background: `linear-gradient(90deg, ${item.color} 0%, rgba(255,255,255,0.4) 100%)`,
-                        borderRadius: 6,
-                        boxShadow: `0 0 8px ${item.color}60`,
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* ─────────────────────────────────────────────────────────────
-              CARD 5 (Middle-Center): Semi-Circle Speedometer Gauge
-             ───────────────────────────────────────────────────────────── */}
-          <div style={{ ...glass, borderRadius: 16, padding: '20px 22px', height: 260, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxSizing: 'border-box' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <h3 style={{ fontSize: 15, fontWeight: 700, color: '#fff', margin: 0 }}>Checkout Drop-off Rate</h3>
-                <p style={{ fontSize: 11, color: '#9ca3af', margin: '3px 0 0' }}>Leads pausing before payment upload</p>
-              </div>
-              <span style={{ fontSize: 11, fontWeight: 600, color: ORANGE, background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.25)', padding: '2px 8px', borderRadius: 4 }}>
-                {dropRate}% HEALTHY
-              </span>
-            </div>
-
-            {/* Semi-Circle SVG */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 160 }}>
-              <div style={{ width: 170, height: 95, position: 'relative' }}>
-                <svg viewBox="0 0 160 90" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
-                  {/* Background Arc */}
-                  <path d="M 25,80 A 55,55 0 0,1 135,80" fill="none" stroke="#18271e" strokeWidth="14" strokeLinecap="round" />
-                  {/* Active Arc */}
-                  <path
-                    d="M 25,80 A 55,55 0 0,1 135,80"
-                    fill="none"
-                    stroke={ORANGE}
-                    strokeWidth="14"
-                    strokeLinecap="round"
-                    strokeDasharray={semiCircumference}
-                    strokeDashoffset={semiOffset}
-                    style={{ filter: 'drop-shadow(0 0 8px rgba(249,115,22,0.6))' }}
-                  />
-                </svg>
-
-                {/* Center text */}
-                <div style={{ position: 'absolute', bottom: 4, left: 0, right: 0, textAlign: 'center' }}>
-                  <div style={{ fontSize: 26, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em' }}>
-                    {dropRate}%
-                  </div>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: ORANGE, letterSpacing: '0.08em', marginTop: 2 }}>
-                    DROP RATE
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
 
           {/* ─────────────────────────────────────────────────────────────
               CARD 6 (Middle-Right): Vertical Column Chart with Benchmark Line
@@ -562,33 +468,6 @@ export default function OverviewDashboardClient({ stats }: { stats: Stats }) {
             </div>
           </div>
 
-          {/* ─────────────────────────────────────────────────────────────
-              CARD 9 (Bottom-Right): Big KPI Engagement Score
-             ───────────────────────────────────────────────────────────── */}
-          <div style={{ ...glass, borderRadius: 16, padding: '20px 22px', height: 260, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxSizing: 'border-box' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <h3 style={{ fontSize: 15, fontWeight: 700, color: '#fff', margin: 0 }}>Engagement Score %</h3>
-                <p style={{ fontSize: 11, color: '#9ca3af', margin: '3px 0 0' }}>Daily active users / total customer base</p>
-              </div>
-              <span style={{ fontSize: 11, fontWeight: 600, color: NEON, background: 'rgba(92,228,109,0.12)', border: '1px solid rgba(92,228,109,0.25)', padding: '2px 8px', borderRadius: 4 }}>
-                94.4% HIGH
-              </span>
-            </div>
-
-            {/* Big Number Typography */}
-            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: 160 }}>
-              <div style={{ fontSize: 48, fontWeight: 800, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1 }}>
-                94.4%
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, fontSize: 12, color: NEON, fontWeight: 600 }}>
-                <span>↑ +2.4% vs Last Month</span>
-              </div>
-              <div style={{ fontSize: 11, color: '#6b7280', marginTop: 8 }}>
-                Fast average resolution speed of <strong>1.8s</strong> per conversation
-              </div>
-            </div>
-          </div>
 
         </div>
 
