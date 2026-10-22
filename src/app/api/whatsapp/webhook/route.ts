@@ -971,7 +971,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (!contactProfile?.name && !contactProfile?.nameAsked && recentMsgs.length === 1) {
-      reply += '\n\nBy the way, may I know your name? 😊';
+      const isUrdu = /[\u0600-\u06FF]|\b(aap|kya|hai|hain|mujhe|kaise|karna|chahiye|bhai|hume|shukriya|bata|sakte|karein|kar|rahe|wala|wali|aur|se|ke|ko|mein|nahi)\b/i.test(`${text} ${reply}`);
+      reply += isUrdu ? '\n\nWaise, kya main aapka naam jaan sakta hoon? 😊' : '\n\nBy the way, may I know your name? 😊';
       await saveContactProfile({ phone: from, nameAsked: true });
     }
 

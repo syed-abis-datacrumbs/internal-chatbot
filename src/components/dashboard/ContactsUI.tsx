@@ -3,8 +3,10 @@
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { ContactDirectoryItem } from '@/lib/redis';
+import { useTheme } from '@/context/ThemeContext';
 
-const NEON = '#5ce46d';
+const NEON_DARK = '#5ce46d';
+const NEON_LIGHT = '#059669';
 
 function formatPhone(phone: string): string {
   const clean = phone.replace(/\D/g, '');
@@ -39,6 +41,17 @@ function formatDateTime(ts: number): string {
 }
 
 export default function ContactsUI({ initialContacts }: { initialContacts: ContactDirectoryItem[] }) {
+  const { isLight } = useTheme();
+  const NEON = isLight ? NEON_LIGHT : NEON_DARK;
+  const titleColor = isLight ? '#0f172a' : '#f3f4f6';
+  const subColor = isLight ? '#475569' : '#9ca3af';
+  const dimColor = isLight ? '#94a3b8' : '#6b7280';
+  const cardBg = isLight ? '#ffffff' : '#0f1712';
+  const cardBorder = isLight ? '#e2e8f0' : '#1a251f';
+  const inputBg = isLight ? '#f8fafc' : '#090d0b';
+  const inputBorder = isLight ? '#cbd5e1' : '#1a251f';
+  const shadow = isLight ? '0 2px 10px rgba(0,0,0,0.03)' : 'none';
+
   const [search, setSearch] = useState('');
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | '7d' | '30d'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'named' | 'active_today' | 'disabled'>('all');
@@ -148,17 +161,24 @@ export default function ContactsUI({ initialContacts }: { initialContacts: Conta
   const activeTodayCount = initialContacts.filter(c => Date.now() - c.lastActiveAt < 24 * 60 * 60 * 1000).length;
 
   return (
-    <div style={{ padding: '28px 32px', background: '#090d0b', minHeight: '100vh', color: '#e5e7eb' }}>
+    <div style={{
+      flex: 1,
+      overflowY: 'auto',
+      background: isLight ? '#f8fafc' : '#090d0b',
+      color: isLight ? '#0f172a' : '#e5e7eb',
+      transition: 'background-color 0.2s ease, color 0.2s ease',
+    }}>
+      <div style={{ padding: '28px 32px' }}>
       {/* ── Top Header Bar ─────────────────────────────────────────── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-            <h1 style={{ fontSize: 24, fontWeight: 700, color: '#f3f4f6', letterSpacing: '-0.02em', margin: 0 }}>
+            <h1 style={{ fontSize: 24, fontWeight: 700, color: titleColor, letterSpacing: '-0.02em', margin: 0 }}>
               Contacts & User Directory
             </h1>
             <span style={{
-              background: 'rgba(92, 228, 109, 0.12)',
-              border: '1px solid rgba(92, 228, 109, 0.3)',
+              background: isLight ? 'rgba(5, 150, 105, 0.1)' : 'rgba(92, 228, 109, 0.12)',
+              border: `1px solid ${isLight ? 'rgba(5, 150, 105, 0.25)' : 'rgba(92, 228, 109, 0.3)'}`,
               color: NEON,
               fontSize: 12,
               fontWeight: 600,
@@ -168,7 +188,7 @@ export default function ContactsUI({ initialContacts }: { initialContacts: Conta
               {totalContactsCount} Total
             </span>
           </div>
-          <p style={{ margin: 0, fontSize: 13, color: '#9ca3af' }}>
+          <p style={{ margin: 0, fontSize: 13, color: subColor }}>
             Search, inspect, and export all customer leads and conversation activity recorded in MongoDB.
           </p>
         </div>
@@ -182,9 +202,11 @@ export default function ContactsUI({ initialContacts }: { initialContacts: Conta
               display: 'flex',
               alignItems: 'center',
               gap: 8,
-              background: filteredContacts.length ? 'rgba(92, 228, 109, 0.15)' : '#1a251f',
-              border: `1px solid ${filteredContacts.length ? NEON : '#2d3d34'}`,
-              color: filteredContacts.length ? NEON : '#6b7280',
+              background: filteredContacts.length
+                ? (isLight ? 'rgba(5, 150, 105, 0.1)' : 'rgba(92, 228, 109, 0.15)')
+                : (isLight ? '#e2e8f0' : '#1a251f'),
+              border: `1px solid ${filteredContacts.length ? NEON : (isLight ? '#cbd5e1' : '#2d3d34')}`,
+              color: filteredContacts.length ? NEON : dimColor,
               padding: '9px 16px',
               borderRadius: 8,
               fontSize: 13,
@@ -203,37 +225,37 @@ export default function ContactsUI({ initialContacts }: { initialContacts: Conta
 
       {/* ── Metric Highlights ──────────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 28 }}>
-        <div style={{ background: '#0f1712', border: '1px solid #1a251f', borderRadius: 12, padding: '16px 20px' }}>
-          <div style={{ fontSize: 12, color: '#9ca3af', fontWeight: 500, marginBottom: 6 }}>Total Unique Contacts</div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: '#f3f4f6' }}>{totalContactsCount}</div>
-          <div style={{ fontSize: 11, color: '#6b7280', marginTop: 4 }}>Unique WhatsApp numbers</div>
+        <div style={{ background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 12, padding: '16px 20px', boxShadow: shadow }}>
+          <div style={{ fontSize: 12, color: subColor, fontWeight: 500, marginBottom: 6 }}>Total Unique Contacts</div>
+          <div style={{ fontSize: 26, fontWeight: 700, color: titleColor }}>{totalContactsCount}</div>
+          <div style={{ fontSize: 11, color: dimColor, marginTop: 4 }}>Unique WhatsApp numbers</div>
         </div>
 
-        <div style={{ background: '#0f1712', border: '1px solid #1a251f', borderRadius: 12, padding: '16px 20px' }}>
-          <div style={{ fontSize: 12, color: '#9ca3af', fontWeight: 500, marginBottom: 6 }}>Identified Leads (Named)</div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: '#60a5fa' }}>
-            {namedCount} <span style={{ fontSize: 14, fontWeight: 500, color: '#93c5fd' }}>({namedPct}%)</span>
+        <div style={{ background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 12, padding: '16px 20px', boxShadow: shadow }}>
+          <div style={{ fontSize: 12, color: subColor, fontWeight: 500, marginBottom: 6 }}>Identified Leads (Named)</div>
+          <div style={{ fontSize: 26, fontWeight: 700, color: isLight ? '#2563eb' : '#60a5fa' }}>
+            {namedCount} <span style={{ fontSize: 14, fontWeight: 500, color: isLight ? '#3b82f6' : '#93c5fd' }}>({namedPct}%)</span>
           </div>
-          <div style={{ fontSize: 11, color: '#6b7280', marginTop: 4 }}>Name automatically captured by AI</div>
+          <div style={{ fontSize: 11, color: dimColor, marginTop: 4 }}>Name automatically captured by AI</div>
         </div>
 
-        <div style={{ background: '#0f1712', border: '1px solid #1a251f', borderRadius: 12, padding: '16px 20px' }}>
-          <div style={{ fontSize: 12, color: '#9ca3af', fontWeight: 500, marginBottom: 6 }}>Total Messages</div>
+        <div style={{ background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 12, padding: '16px 20px', boxShadow: shadow }}>
+          <div style={{ fontSize: 12, color: subColor, fontWeight: 500, marginBottom: 6 }}>Total Messages</div>
           <div style={{ fontSize: 26, fontWeight: 700, color: NEON }}>{totalMsgsCount}</div>
-          <div style={{ fontSize: 11, color: '#6b7280', marginTop: 4 }}>Inbound + automated AI replies</div>
+          <div style={{ fontSize: 11, color: dimColor, marginTop: 4 }}>Inbound + automated AI replies</div>
         </div>
 
-        <div style={{ background: '#0f1712', border: '1px solid #1a251f', borderRadius: 12, padding: '16px 20px' }}>
-          <div style={{ fontSize: 12, color: '#9ca3af', fontWeight: 500, marginBottom: 6 }}>Active in Last 24 Hours</div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: '#f59e0b' }}>{activeTodayCount}</div>
-          <div style={{ fontSize: 11, color: '#6b7280', marginTop: 4 }}>Recent customer inquiries</div>
+        <div style={{ background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 12, padding: '16px 20px', boxShadow: shadow }}>
+          <div style={{ fontSize: 12, color: subColor, fontWeight: 500, marginBottom: 6 }}>Active in Last 24 Hours</div>
+          <div style={{ fontSize: 26, fontWeight: 700, color: isLight ? '#d97706' : '#f59e0b' }}>{activeTodayCount}</div>
+          <div style={{ fontSize: 11, color: dimColor, marginTop: 4 }}>Recent customer inquiries</div>
         </div>
       </div>
 
       {/* ── Search & Filter Controls Bar ─────────────────────────────── */}
       <div style={{
-        background: '#0f1712',
-        border: '1px solid #1a251f',
+        background: cardBg,
+        border: `1px solid ${cardBorder}`,
         borderRadius: 12,
         padding: '16px 20px',
         marginBottom: 20,
@@ -242,6 +264,7 @@ export default function ContactsUI({ initialContacts }: { initialContacts: Conta
         alignItems: 'center',
         justifyContent: 'space-between',
         gap: 16,
+        boxShadow: shadow,
       }}>
         {/* Search Input */}
         <div style={{ flex: '1 1 300px', position: 'relative' }}>
@@ -249,7 +272,7 @@ export default function ContactsUI({ initialContacts }: { initialContacts: Conta
             width="16"
             height="16"
             fill="none"
-            stroke="#9ca3af"
+            stroke={subColor}
             viewBox="0 0 24 24"
             style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }}
           >
@@ -262,11 +285,11 @@ export default function ContactsUI({ initialContacts }: { initialContacts: Conta
             onChange={e => setSearch(e.target.value)}
             style={{
               width: '100%',
-              background: '#090d0b',
-              border: '1px solid #1a251f',
+              background: inputBg,
+              border: `1px solid ${inputBorder}`,
               borderRadius: 8,
               padding: '9px 14px 9px 36px',
-              color: '#f3f4f6',
+              color: titleColor,
               fontSize: 13,
               outline: 'none',
               boxSizing: 'border-box',
@@ -282,7 +305,7 @@ export default function ContactsUI({ initialContacts }: { initialContacts: Conta
                 transform: 'translateY(-50%)',
                 background: 'transparent',
                 border: 'none',
-                color: '#9ca3af',
+                color: subColor,
                 cursor: 'pointer',
                 fontSize: 14,
               }}
@@ -295,7 +318,7 @@ export default function ContactsUI({ initialContacts }: { initialContacts: Conta
         {/* Filter Badges & Selectors */}
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
           {/* Time Range Filter */}
-          <div style={{ display: 'flex', background: '#090d0b', border: '1px solid #1a251f', borderRadius: 8, padding: 2 }}>
+          <div style={{ display: 'flex', background: isLight ? '#f1f5f9' : '#090d0b', border: `1px solid ${inputBorder}`, borderRadius: 8, padding: 2 }}>
             {(['all', 'today', '7d', '30d'] as const).map(f => (
               <button
                 key={f}
@@ -304,8 +327,9 @@ export default function ContactsUI({ initialContacts }: { initialContacts: Conta
                   padding: '6px 12px',
                   borderRadius: 6,
                   border: 'none',
-                  background: dateFilter === f ? 'rgba(92, 228, 109, 0.15)' : 'transparent',
-                  color: dateFilter === f ? NEON : '#9ca3af',
+                  background: dateFilter === f ? (isLight ? '#ffffff' : 'rgba(92, 228, 109, 0.15)') : 'transparent',
+                  color: dateFilter === f ? NEON : subColor,
+                  boxShadow: dateFilter === f && isLight ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
                   fontSize: 12,
                   fontWeight: dateFilter === f ? 600 : 500,
                   cursor: 'pointer',
@@ -322,11 +346,11 @@ export default function ContactsUI({ initialContacts }: { initialContacts: Conta
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value as any)}
             style={{
-              background: '#090d0b',
-              border: '1px solid #1a251f',
+              background: inputBg,
+              border: `1px solid ${inputBorder}`,
               borderRadius: 8,
               padding: '8px 12px',
-              color: '#d1d5db',
+              color: titleColor,
               fontSize: 12,
               outline: 'none',
               cursor: 'pointer',
@@ -343,11 +367,11 @@ export default function ContactsUI({ initialContacts }: { initialContacts: Conta
             value={sortBy}
             onChange={e => setSortBy(e.target.value as any)}
             style={{
-              background: '#090d0b',
-              border: '1px solid #1a251f',
+              background: inputBg,
+              border: `1px solid ${inputBorder}`,
               borderRadius: 8,
               padding: '8px 12px',
-              color: '#d1d5db',
+              color: titleColor,
               fontSize: 12,
               outline: 'none',
               cursor: 'pointer',
@@ -361,11 +385,11 @@ export default function ContactsUI({ initialContacts }: { initialContacts: Conta
       </div>
 
       {/* ── Contacts Table ─────────────────────────────────────────── */}
-      <div style={{ background: '#0f1712', border: '1px solid #1a251f', borderRadius: 12, overflow: 'hidden' }}>
+      <div style={{ background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 12, overflow: 'hidden', boxShadow: shadow }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
             <thead>
-              <tr style={{ background: '#090d0b', borderBottom: '1px solid #1a251f', color: '#9ca3af', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <tr style={{ background: isLight ? '#f8fafc' : '#090d0b', borderBottom: `1px solid ${cardBorder}`, color: subColor, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 <th style={{ padding: '14px 20px', fontWeight: 600 }}>Contact Info</th>
                 <th style={{ padding: '14px 20px', fontWeight: 600 }}>Activity Timeline</th>
                 <th style={{ padding: '14px 20px', fontWeight: 600 }}>Messages</th>
@@ -377,14 +401,14 @@ export default function ContactsUI({ initialContacts }: { initialContacts: Conta
             <tbody>
               {filteredContacts.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ padding: '48px 20px', textAlign: 'center', color: '#6b7280' }}>
-                    <div style={{ display: 'inline-flex', padding: 12, background: 'rgba(255,255,255,0.03)', borderRadius: '50%', marginBottom: 12 }}>
-                      <svg width="24" height="24" fill="none" stroke="#6b7280" viewBox="0 0 24 24">
+                  <td colSpan={6} style={{ padding: '48px 20px', textAlign: 'center', color: dimColor }}>
+                    <div style={{ display: 'inline-flex', padding: 12, background: isLight ? '#f1f5f9' : 'rgba(255,255,255,0.03)', borderRadius: '50%', marginBottom: 12 }}>
+                      <svg width="24" height="24" fill="none" stroke={dimColor} viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                       </svg>
                     </div>
-                    <div style={{ fontSize: 14, fontWeight: 500, color: '#d1d5db', marginBottom: 4 }}>No contacts match your filters</div>
-                    <div style={{ fontSize: 12, color: '#9ca3af' }}>Try clearing your search term or changing your date range filter.</div>
+                    <div style={{ fontSize: 14, fontWeight: 500, color: titleColor, marginBottom: 4 }}>No contacts match your filters</div>
+                    <div style={{ fontSize: 12, color: subColor }}>Try clearing your search term or changing your date range filter.</div>
                     {(search || dateFilter !== 'all' || statusFilter !== 'all') && (
                       <button
                         onClick={() => { setSearch(''); setDateFilter('all'); setStatusFilter('all'); }}
@@ -416,10 +440,10 @@ export default function ContactsUI({ initialContacts }: { initialContacts: Conta
                     <tr
                       key={c.phone}
                       style={{
-                        borderBottom: '1px solid #152219',
+                        borderBottom: `1px solid ${isLight ? '#f1f5f9' : '#152219'}`,
                         transition: 'background 0.12s ease',
                       }}
-                      onMouseEnter={e => (e.currentTarget.style.background = '#131e17')}
+                      onMouseEnter={e => (e.currentTarget.style.background = isLight ? '#f8fafc' : '#131e17')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     >
                       {/* Column 1: Contact Info */}
@@ -430,9 +454,11 @@ export default function ContactsUI({ initialContacts }: { initialContacts: Conta
                             width: 38,
                             height: 38,
                             borderRadius: '50%',
-                            background: c.name ? 'rgba(92, 228, 109, 0.12)' : 'rgba(255,255,255,0.05)',
-                            border: `1px solid ${c.name ? 'rgba(92, 228, 109, 0.3)' : '#26332b'}`,
-                            color: c.name ? NEON : '#9ca3af',
+                            background: c.name
+                              ? (isLight ? '#ecfdf5' : 'rgba(92, 228, 109, 0.12)')
+                              : (isLight ? '#f1f5f9' : 'rgba(255,255,255,0.05)'),
+                            border: `1px solid ${c.name ? (isLight ? '#a7f3d0' : 'rgba(92, 228, 109, 0.3)') : (isLight ? '#e2e8f0' : '#26332b')}`,
+                            color: c.name ? NEON : subColor,
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -444,7 +470,7 @@ export default function ContactsUI({ initialContacts }: { initialContacts: Conta
                           </div>
 
                           <div>
-                            <div style={{ fontWeight: 600, color: c.name ? '#f9fafb' : '#9ca3af', fontSize: 13, marginBottom: 3 }}>
+                            <div style={{ fontWeight: 600, color: c.name ? titleColor : subColor, fontSize: 13, marginBottom: 3 }}>
                               {c.name || 'Unidentified Lead'}
                             </div>
                             <div
@@ -455,9 +481,11 @@ export default function ContactsUI({ initialContacts }: { initialContacts: Conta
                                 alignItems: 'center',
                                 gap: 6,
                                 fontSize: 12,
-                                color: copiedPhone === c.phone ? NEON : '#d1d5db',
-                                background: copiedPhone === c.phone ? 'rgba(92, 228, 109, 0.12)' : 'rgba(255, 255, 255, 0.03)',
-                                border: `1px solid ${copiedPhone === c.phone ? NEON : '#1f2e24'}`,
+                                color: copiedPhone === c.phone ? NEON : (isLight ? '#334155' : '#d1d5db'),
+                                background: copiedPhone === c.phone
+                                  ? (isLight ? 'rgba(5, 150, 105, 0.1)' : 'rgba(92, 228, 109, 0.12)')
+                                  : (isLight ? '#f1f5f9' : 'rgba(255, 255, 255, 0.03)'),
+                                border: `1px solid ${copiedPhone === c.phone ? NEON : (isLight ? '#e2e8f0' : '#1f2e24')}`,
                                 padding: '3px 8px',
                                 borderRadius: 6,
                                 cursor: 'pointer',
@@ -466,14 +494,14 @@ export default function ContactsUI({ initialContacts }: { initialContacts: Conta
                               }}
                               onMouseEnter={e => {
                                 e.currentTarget.style.borderColor = NEON;
-                                e.currentTarget.style.background = 'rgba(92, 228, 109, 0.08)';
+                                e.currentTarget.style.background = isLight ? 'rgba(5, 150, 105, 0.08)' : 'rgba(92, 228, 109, 0.08)';
                                 const icon = e.currentTarget.querySelector('.copy-icon') as HTMLElement;
                                 if (icon) icon.style.opacity = '1';
                               }}
                               onMouseLeave={e => {
                                 if (copiedPhone !== c.phone) {
-                                  e.currentTarget.style.borderColor = '#1f2e24';
-                                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
+                                  e.currentTarget.style.borderColor = isLight ? '#e2e8f0' : '#1f2e24';
+                                  e.currentTarget.style.background = isLight ? '#f1f5f9' : 'rgba(255, 255, 255, 0.03)';
                                   const icon = e.currentTarget.querySelector('.copy-icon') as HTMLElement;
                                   if (icon) icon.style.opacity = '0.35';
                                 }
@@ -499,7 +527,7 @@ export default function ContactsUI({ initialContacts }: { initialContacts: Conta
                               </span>
                             </div>
                             {c.email && (
-                              <div style={{ fontSize: 11, color: '#60a5fa', marginTop: 4 }}>{c.email}</div>
+                              <div style={{ fontSize: 11, color: isLight ? '#2563eb' : '#60a5fa', marginTop: 4 }}>{c.email}</div>
                             )}
                           </div>
                         </div>
@@ -508,10 +536,10 @@ export default function ContactsUI({ initialContacts }: { initialContacts: Conta
                       {/* Column 2: Activity Timeline */}
                       <td style={{ padding: '16px 20px', verticalAlign: 'top' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                          <span style={{ fontSize: 11, color: '#6b7280' }}>Active:</span>
-                          <span style={{ fontSize: 12, fontWeight: 500, color: '#f3f4f6' }}>{formatRelativeTime(c.lastActiveAt)}</span>
+                          <span style={{ fontSize: 11, color: dimColor }}>Active:</span>
+                          <span style={{ fontSize: 12, fontWeight: 500, color: titleColor }}>{formatRelativeTime(c.lastActiveAt)}</span>
                         </div>
-                        <div style={{ fontSize: 11, color: '#6b7280' }}>
+                        <div style={{ fontSize: 11, color: dimColor }}>
                           First seen: {formatDateTime(c.firstSeenAt)}
                         </div>
                       </td>
@@ -522,17 +550,17 @@ export default function ContactsUI({ initialContacts }: { initialContacts: Conta
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: 6,
-                          background: 'rgba(255,255,255,0.04)',
-                          border: '1px solid #1a251f',
+                          background: isLight ? '#f1f5f9' : 'rgba(255,255,255,0.04)',
+                          border: `1px solid ${cardBorder}`,
                           padding: '3px 8px',
                           borderRadius: 6,
                           fontSize: 12,
                           fontWeight: 600,
-                          color: '#e5e7eb',
+                          color: titleColor,
                         }}>
                           💬 {c.totalMessages} msgs
                         </span>
-                        <div style={{ fontSize: 10, color: '#6b7280', marginTop: 4 }}>
+                        <div style={{ fontSize: 10, color: dimColor, marginTop: 4 }}>
                           {c.userMessagesCount} user / {c.botRepliesCount} bot
                         </div>
                       </td>
@@ -541,16 +569,16 @@ export default function ContactsUI({ initialContacts }: { initialContacts: Conta
                       <td style={{ padding: '16px 20px', verticalAlign: 'top', maxWidth: 300 }}>
                         {c.lastUserMessage ? (
                           <div style={{ marginBottom: 4 }}>
-                            <span style={{ fontSize: 10, color: '#6b7280', textTransform: 'uppercase' }}>Customer: </span>
-                            <span style={{ fontSize: 12, color: '#e5e7eb' }}>
+                            <span style={{ fontSize: 10, color: dimColor, textTransform: 'uppercase' }}>Customer: </span>
+                            <span style={{ fontSize: 12, color: isLight ? '#334155' : '#e5e7eb' }}>
                               {c.lastUserMessage.length > 70 ? `${c.lastUserMessage.slice(0, 70)}...` : c.lastUserMessage}
                             </span>
                           </div>
                         ) : (
-                          <div style={{ fontSize: 12, color: '#6b7280', fontStyle: 'italic' }}>No customer message text</div>
+                          <div style={{ fontSize: 12, color: dimColor, fontStyle: 'italic' }}>No customer message text</div>
                         )}
                         {c.lastBotReply && (
-                          <div style={{ fontSize: 11, color: '#9ca3af' }}>
+                          <div style={{ fontSize: 11, color: subColor }}>
                             <span style={{ fontSize: 10, color: NEON }}>Bot: </span>
                             {c.lastBotReply.length > 70 ? `${c.lastBotReply.slice(0, 70)}...` : c.lastBotReply}
                           </div>
@@ -568,9 +596,9 @@ export default function ContactsUI({ initialContacts }: { initialContacts: Conta
                             borderRadius: 12,
                             fontSize: 11,
                             fontWeight: 600,
-                            background: 'rgba(245, 158, 11, 0.1)',
-                            border: '1px solid rgba(245, 158, 11, 0.3)',
-                            color: '#f59e0b',
+                            background: isLight ? 'rgba(217, 119, 6, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                            border: `1px solid ${isLight ? 'rgba(217, 119, 6, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
+                            color: isLight ? '#d97706' : '#f59e0b',
                           }}>
                             ● Paused
                           </span>
@@ -583,8 +611,8 @@ export default function ContactsUI({ initialContacts }: { initialContacts: Conta
                             borderRadius: 12,
                             fontSize: 11,
                             fontWeight: 600,
-                            background: 'rgba(92, 228, 109, 0.1)',
-                            border: '1px solid rgba(92, 228, 109, 0.25)',
+                            background: isLight ? 'rgba(5, 150, 105, 0.1)' : 'rgba(92, 228, 109, 0.1)',
+                            border: `1px solid ${isLight ? 'rgba(5, 150, 105, 0.25)' : 'rgba(92, 228, 109, 0.25)'}`,
                             color: NEON,
                           }}>
                             ● Automated
@@ -601,9 +629,9 @@ export default function ContactsUI({ initialContacts }: { initialContacts: Conta
                             style={{
                               padding: '6px 12px',
                               borderRadius: 6,
-                              background: '#1a251f',
-                              border: '1px solid #28392f',
-                              color: '#f3f4f6',
+                              background: isLight ? '#f1f5f9' : '#1a251f',
+                              border: `1px solid ${isLight ? '#cbd5e1' : '#28392f'}`,
+                              color: titleColor,
                               fontSize: 12,
                               fontWeight: 500,
                               textDecoration: 'none',
@@ -613,7 +641,7 @@ export default function ContactsUI({ initialContacts }: { initialContacts: Conta
                               transition: 'all 0.12s ease',
                             }}
                             onMouseEnter={e => (e.currentTarget.style.borderColor = NEON)}
-                            onMouseLeave={e => (e.currentTarget.style.borderColor = '#28392f')}
+                            onMouseLeave={e => (e.currentTarget.style.borderColor = isLight ? '#cbd5e1' : '#28392f')}
                           >
                             View Chat →
                           </Link>
@@ -627,8 +655,8 @@ export default function ContactsUI({ initialContacts }: { initialContacts: Conta
                             style={{
                               padding: '6px 8px',
                               borderRadius: 6,
-                              background: 'rgba(92, 228, 109, 0.08)',
-                              border: '1px solid rgba(92, 228, 109, 0.2)',
+                              background: isLight ? 'rgba(5, 150, 105, 0.08)' : 'rgba(92, 228, 109, 0.08)',
+                              border: `1px solid ${isLight ? 'rgba(5, 150, 105, 0.2)' : 'rgba(92, 228, 109, 0.2)'}`,
                               color: NEON,
                               fontSize: 12,
                               textDecoration: 'none',
@@ -651,20 +679,21 @@ export default function ContactsUI({ initialContacts }: { initialContacts: Conta
         {/* Table Footer */}
         <div style={{
           padding: '12px 20px',
-          background: '#090d0b',
-          borderTop: '1px solid #1a251f',
+          background: isLight ? '#f8fafc' : '#090d0b',
+          borderTop: `1px solid ${cardBorder}`,
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           fontSize: 12,
-          color: '#6b7280',
+          color: dimColor,
         }}>
           <div>
-            Showing <strong style={{ color: '#d1d5db' }}>{filteredContacts.length}</strong> of{' '}
-            <strong style={{ color: '#d1d5db' }}>{totalContactsCount}</strong> contacts
+            Showing <strong style={{ color: titleColor }}>{filteredContacts.length}</strong> of{' '}
+            <strong style={{ color: titleColor }}>{totalContactsCount}</strong> contacts
           </div>
           <div>All data synced directly from MongoDB</div>
         </div>
+      </div>
       </div>
     </div>
   );

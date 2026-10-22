@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-
-const NEON = '#5ce46d';
+import { useTheme } from '@/context/ThemeContext';
 
 type CountKey = 'chats' | 'leads' | 'enrollments';
 
@@ -47,63 +46,18 @@ const NAV: { href: string; label: string; countKey?: CountKey; icon: React.React
       </svg>
     ),
   },
-  // {
-  //   href: '/leads',
-  //   label: 'Leads',
-  //   countKey: 'leads',
-  //   icon: (
-  //     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-  //       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-  //     </svg>
-  //   ),
-  // },
-  // {
-  //   href: '/enrollments',
-  //   label: 'Enrollments',
-  //   countKey: 'enrollments',
-  //   icon: (
-  //     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-  //       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-  //     </svg>
-  //   ),
-  // },
-  // {
-  //   href: '/discounts',
-  //   label: 'Discounts',
-  //   icon: (
-  //     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-  //       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M17 17h.01M9 19l10-16M7 9a2 2 0 100-4 2 2 0 000 4zm10 10a2 2 0 100-4 2 2 0 000 4z" />
-  //     </svg>
-  //   ),
-  // },
-  // {
-  //   href: '/demo',
-  //   label: 'Demo Requests',
-  //   icon: (
-  //     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-  //       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.55-2.55a1 1 0 011.45.9v7.3a1 1 0 01-1.45.9L15 14M5 6h9a1 1 0 011 1v10a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1z" />
-  //     </svg>
-  //   ),
-  // },
-  // {
-  //   href: '/config',
-  //   label: 'Configuration',
-  //   icon: (
-  //     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-  //       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-  //     </svg>
-  //   ),
-  // },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
   const [hovered, setHovered] = useState<string | null>(null);
   const [logoutHov, setLogoutHov] = useState(false);
-  const [counts, setCounts] = useState<Record<CountKey, number> | null>(null);
+  const [counts] = useState<Record<CountKey, number> | null>(null);
+  const { isLight, setTheme } = useTheme();
 
-  // Nav counts polling disabled as unused tabs are hidden
-  // useEffect(() => { ... }, []);
+  const neon = isLight ? '#059669' : '#5ce46d';
+  const sidebarBg = isLight ? '#ffffff' : '#090d0b';
+  const borderRight = isLight ? '1px solid #e5ede7' : '1px solid #1a251f';
 
   async function logout() {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -114,18 +68,20 @@ export default function Sidebar() {
     <div style={{
       width: 256, flexShrink: 0,
       display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-      borderRight: '1px solid #1a251f',
+      borderRight,
       height: '100vh',
-      background: '#090d0b',
+      background: sidebarBg,
+      transition: 'background-color 0.2s ease, border-color 0.2s ease',
     }}>
       <div style={{ padding: 20 }}>
         {/* Logo */}
-        <div style={{ marginBottom: 20 }}>
+        <div style={{ marginBottom: 20, minHeight: 48, display: 'flex', alignItems: 'center' }}>
           <Image
-            src="/logo.png"
+            src={isLight ? '/images/datacrumbs-light.png' : '/logo.png'}
             alt="DataCrumbs"
             width={140}
-            height={50}
+            height={46}
+            priority
             style={{ objectFit: 'contain', objectPosition: 'left' }}
           />
         </div>
@@ -147,25 +103,29 @@ export default function Sidebar() {
                   display: 'flex', alignItems: 'center', gap: 12,
                   padding: '10px 12px', borderRadius: 8,
                   background: active
-                    ? 'linear-gradient(to right, #204027, #122316)'
-                    : hovering ? '#121a16' : 'transparent',
-                  border: `1px solid ${active ? '#2b5133' : 'transparent'}`,
-                  boxShadow: active ? '0 0 15px rgba(92,228,109,0.3)' : 'none',
-                  color: active ? NEON : hovering ? '#fff' : '#9ca3af',
-                  transition: 'all 0.15s',
+                    ? (isLight ? 'linear-gradient(to right, #ecfdf5, #f0fdf4)' : 'linear-gradient(to right, #204027, #122316)')
+                    : hovering ? (isLight ? '#f1f5f9' : '#121a16') : 'transparent',
+                  border: `1px solid ${active ? (isLight ? '#a7f3d0' : '#2b5133') : 'transparent'}`,
+                  boxShadow: active
+                    ? (isLight ? '0 2px 10px rgba(16,185,129,0.12)' : '0 0 15px rgba(92,228,109,0.3)')
+                    : 'none',
+                  color: active ? neon : hovering ? (isLight ? '#0f172a' : '#fff') : (isLight ? '#64748b' : '#9ca3af'),
+                  transition: 'all 0.15s ease',
                 }}>
-                  <span style={{ color: active ? NEON : 'inherit', display: 'flex', flexShrink: 0 }}>
+                  <span style={{ color: active ? neon : 'inherit', display: 'flex', flexShrink: 0 }}>
                     {item.icon}
                   </span>
-                  <span style={{ fontSize: 14, fontWeight: active ? 500 : 400, flex: 1 }}>
+                  <span style={{ fontSize: 14, fontWeight: active ? 600 : 400, flex: 1 }}>
                     {item.label}
                   </span>
                   {item.countKey && counts != null && (
                     <span style={{
                       fontSize: 11, fontWeight: 600,
-                      color: active ? NEON : '#6b7280',
-                      background: active ? 'rgba(92,228,109,0.12)' : 'rgba(255,255,255,0.05)',
-                      border: `1px solid ${active ? 'rgba(92,228,109,0.3)' : '#202d26'}`,
+                      color: active ? neon : (isLight ? '#64748b' : '#6b7280'),
+                      background: active
+                        ? (isLight ? 'rgba(16,185,129,0.15)' : 'rgba(92,228,109,0.12)')
+                        : (isLight ? '#e2e8f0' : 'rgba(255,255,255,0.05)'),
+                      border: `1px solid ${active ? (isLight ? 'rgba(16,185,129,0.3)' : 'rgba(92,228,109,0.3)') : (isLight ? '#cbd5e1' : '#202d26')}`,
                       borderRadius: 20, padding: '1px 8px',
                       flexShrink: 0,
                     }}>
@@ -179,23 +139,80 @@ export default function Sidebar() {
         </nav>
       </div>
 
-      {/* Bottom profile */}
+      {/* Bottom controls: Theme Switcher + Profile */}
       <div style={{ padding: '0 16px 16px' }}>
+        {/* Segmented Theme Switcher */}
         <div style={{
-          background: 'linear-gradient(180deg, rgba(20,29,25,0.8) 0%, rgba(13,20,17,0.9) 100%)',
-          border: '1px solid #202d26',
+          marginBottom: 12,
+          padding: 3,
+          background: isLight ? '#f1f5f9' : '#121a16',
+          border: `1px solid ${isLight ? '#e2e8f0' : '#202d26'}`,
+          borderRadius: 10,
+          display: 'flex',
+          gap: 3,
+        }}>
+          <button
+            onClick={() => setTheme('dark')}
+            title="Switch to Dark Theme"
+            style={{
+              flex: 1,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              padding: '7px 0',
+              borderRadius: 7,
+              fontSize: 12, fontWeight: 600,
+              border: !isLight ? '1px solid #2b5133' : '1px solid transparent',
+              background: !isLight ? '#1f3526' : 'transparent',
+              color: !isLight ? '#5ce46d' : (isLight ? '#64748b' : '#9ca3af'),
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+            </svg>
+            Dark
+          </button>
+          <button
+            onClick={() => setTheme('light')}
+            title="Switch to Light Theme"
+            style={{
+              flex: 1,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              padding: '7px 0',
+              borderRadius: 7,
+              fontSize: 12, fontWeight: 600,
+              border: isLight ? '1px solid #a7f3d0' : '1px solid transparent',
+              background: isLight ? '#ffffff' : 'transparent',
+              color: isLight ? '#059669' : '#9ca3af',
+              boxShadow: isLight ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+            Light
+          </button>
+        </div>
+
+        {/* Profile Card */}
+        <div style={{
+          background: isLight ? '#ffffff' : 'linear-gradient(180deg, rgba(20,29,25,0.8) 0%, rgba(13,20,17,0.9) 100%)',
+          border: `1px solid ${isLight ? '#e2e8f0' : '#202d26'}`,
           borderRadius: 10, padding: '10px 12px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          boxShadow: isLight ? '0 2px 8px rgba(0,0,0,0.04)' : 'none',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ position: 'relative' }}>
               <div style={{
                 width: 34, height: 34, borderRadius: '50%',
-                background: '#1a251f',
-                border: `1.5px solid ${NEON}`,
-                boxShadow: '0 0 10px rgba(92,228,109,0.2)',
+                background: isLight ? '#ecfdf5' : '#1a251f',
+                border: `1.5px solid ${neon}`,
+                boxShadow: `0 0 10px ${isLight ? 'rgba(16,185,129,0.15)' : 'rgba(92,228,109,0.2)'}`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: NEON,
+                color: neon,
               }}>
                 <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
@@ -204,12 +221,12 @@ export default function Sidebar() {
               <div style={{
                 position: 'absolute', bottom: 0, right: 0,
                 width: 8, height: 8, borderRadius: '50%',
-                background: NEON, border: '1.5px solid #090d0b',
+                background: neon, border: `1.5px solid ${isLight ? '#ffffff' : '#090d0b'}`,
               }} />
             </div>
             <div>
-              <h3 style={{ fontSize: 13, fontWeight: 600, color: '#fff', margin: 0, lineHeight: 1.2 }}>Admin</h3>
-              <p style={{ fontSize: 10, color: NEON, margin: 0, lineHeight: 1.2 }}>DataCrumbs</p>
+              <h3 style={{ fontSize: 13, fontWeight: 600, color: isLight ? '#0f172a' : '#fff', margin: 0, lineHeight: 1.2 }}>Admin</h3>
+              <p style={{ fontSize: 10, color: neon, margin: 0, lineHeight: 1.2, fontWeight: 500 }}>DataCrumbs</p>
             </div>
           </div>
           <button
@@ -220,7 +237,7 @@ export default function Sidebar() {
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 32, height: 32, borderRadius: 6,
-              fontSize: 12, color: logoutHov ? '#ef4444' : '#9ca3af',
+              fontSize: 12, color: logoutHov ? '#ef4444' : (isLight ? '#64748b' : '#9ca3af'),
               background: logoutHov ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
               border: 'none', cursor: 'pointer',
               transition: 'all 0.15s',

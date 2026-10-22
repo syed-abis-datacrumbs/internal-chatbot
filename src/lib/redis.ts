@@ -1,4 +1,12 @@
+import dns from 'node:dns';
 import { MongoClient, Db } from 'mongodb';
+
+// Use public DNS resolvers to prevent querySrv ECONNREFUSED on Windows/local networks
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1']);
+} catch {
+  // Ignore in restricted environments
+}
 
 const uri = process.env.MONGODB_URI!;
 
@@ -217,6 +225,14 @@ export interface Stats {
   last7Days: DayCount[];
   last30Days: DayCount[];
   todayHours: number[]; // 24 elements, index = PKT hour
+  allTimeHours?: number[]; // 24 elements, cumulative by hour of day
+  peakHourLabel?: string;
+  followUpStatus?: {
+    under24h: number;
+    days2to4: number;
+    days5to7: number;
+    over10d: number;
+  };
   funnel: {
     inquiries: number;
     engaged: number;
@@ -282,6 +298,7 @@ export async function getStats(): Promise<Stats> {
   // Aggregate daily counts for 30 days and 7 days
   const dayMap = new Map<string, number>();
   const todayHours = new Array<number>(24).fill(0);
+  const allTimeHours = new Array<number>(24).fill(0);
   const dayOfWeekCounts = new Array<number>(7).fill(0); // 0=Sun, 1=Mon, ..., 6=Sat
 
   // Intent categorization counters
@@ -292,16 +309,19 @@ export async function getStats(): Promise<Stats> {
   let enrollmentCount = 0;
   let generalCount = 0;
 
-  // Contact engagement message count
+  // Contact engagement message count & recency
   const contactMsgCount = new Map<string, number>();
+  const contactLastSeen = new Map<string, number>();
 
   for (const doc of allMessages) {
     const ts = doc.timestamp as number;
     const key = pktDateKey(ts);
     dayMap.set(key, (dayMap.get(key) ?? 0) + 1);
 
+    const pktHour = Math.floor((ts + PKT_MS) / (60 * 60 * 1000)) % 24;
+    allTimeHours[pktHour]++;
+
     if (ts >= todayStartPKT) {
-      const pktHour = Math.floor((ts + PKT_MS) / (60 * 60 * 1000)) % 24;
       todayHours[pktHour]++;
     }
 
@@ -309,9 +329,12 @@ export async function getStats(): Promise<Stats> {
     const dayIdx = new Date(ts + PKT_MS).getUTCDay();
     dayOfWeekCounts[dayIdx]++;
 
-    // Message counts per user
+    // Message counts & latest timestamp per user
     const userPhone = doc.from;
     contactMsgCount.set(userPhone, (contactMsgCount.get(userPhone) ?? 0) + 1);
+    const prevTs = contactLastSeen.get(userPhone) ?? 0;
+    if (ts > prevTs) contactLastSeen.set(userPhone, ts);
+
 
     // Intent detection
     const textLower = (doc.text ?? '').toLowerCase();
@@ -424,6 +447,40 @@ export async function getStats(): Promise<Stats> {
     };
   });
 
+  // ── Contact Recency (Lead Follow-up Status) ─────────────────────────────
+  let under24h = 0;
+  let days2to4 = 0;
+  let days5to7 = 0;
+  let over10d = 0;
+  const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+  for (const [, lastTs] of contactLastSeen) {
+    const diffDays = (nowMs - lastTs) / ONE_DAY_MS;
+    if (diffDays < 1) {
+      under24h++;
+    } else if (diffDays <= 4) {
+      days2to4++;
+    } else if (diffDays <= 7) {
+      days5to7++;
+    } else {
+      over10d++;
+    }
+  }
+
+  // ── Dynamic Peak Hour ───────────────────────────────────────────────────
+  const activeHours = todayHours.some(v => v > 0) ? todayHours : allTimeHours;
+  let peakHourIdx = 0;
+  let peakVal = -1;
+  for (let h = 0; h < 24; h++) {
+    if (activeHours[h] > peakVal) {
+      peakVal = activeHours[h];
+      peakHourIdx = h;
+    }
+  }
+  const ampm = peakHourIdx >= 12 ? 'PM' : 'AM';
+  const h12 = peakHourIdx % 12 === 0 ? 12 : peakHourIdx % 12;
+  const peakHourLabel = peakVal > 0 ? `PEAK: ${h12} ${ampm}` : 'PEAK: N/A';
+
   return {
     totalMessages,
     todayMessages: allMessages.filter(m => (m.timestamp as number) >= todayStartPKT).length,
@@ -432,6 +489,14 @@ export async function getStats(): Promise<Stats> {
     last7Days,
     last30Days,
     todayHours,
+    allTimeHours,
+    peakHourLabel,
+    followUpStatus: {
+      under24h,
+      days2to4,
+      days5to7,
+      over10d,
+    },
     funnel: {
       inquiries,
       engaged,
