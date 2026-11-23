@@ -32,12 +32,22 @@ export async function getAIReply(
     systemInstruction = systemPromptOverride || `You are the official DataCrumbs Assistant.`;
   }
 
+  const modelName = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
   const model = genAI.getGenerativeModel({
-    model: 'gemini-2.5-flash',
+    model: modelName,
     systemInstruction,
   });
 
-  const safeHistory = [...history];
+  // Filter out any previous fallback error messages so they don't poison history
+  const cleanHistory = history.filter(h => {
+    if (h.role === 'model') {
+      const text = h.parts?.[0]?.text ?? '';
+      return !text.startsWith("I'm sorry, I wasn't able to process");
+    }
+    return true;
+  });
+
+  const safeHistory = [...cleanHistory];
   while (safeHistory.length > 0 && safeHistory[0].role !== 'user') {
     safeHistory.shift();
   }
