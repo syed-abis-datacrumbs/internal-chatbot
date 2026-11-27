@@ -1,8 +1,19 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { buildInternshipSystemPrompt } from './dynamicKnowledge';
 import { getSystemPrompt } from './redis';
+import { logError } from './logger';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+
+function extractGeminiStatus(err: unknown): number | undefined {
+  const e = err as { status?: unknown; message?: unknown };
+  if (typeof e?.status === 'number') return e.status;
+  const msg = String(e?.message || '');
+  const match = msg.match(/\[(\d{3})\b/);
+  if (match) return parseInt(match[1], 10);
+  if (msg.includes('429') || msg.toLowerCase().includes('quota')) return 429;
+  return undefined;
+}
 
 interface HistoryMessage {
   role: 'user' | 'model';
@@ -28,7 +39,7 @@ export async function getAIReply(
       systemInstruction = await buildInternshipSystemPrompt(userMessage);
     }
   } catch (err) {
-    console.warn('[gemini] Failed to build prompt:', err);
+    logError('Failed to build internship system prompt', err, { provider: 'gemini', fn: 'getAIReply' });
     systemInstruction = systemPromptOverride || `You are the official DataCrumbs Assistant.`;
   }
 
@@ -58,12 +69,22 @@ export async function getAIReply(
       const result = await chat.sendMessage(userMessage);
       try {
         return result.response.text();
-      } catch {
-        console.warn('[gemini] blocked:', result.response.candidates?.[0]?.finishReason);
+      } catch (blockErr) {
+        logError('Gemini response blocked', blockErr, {
+          provider: 'gemini',
+          model: modelName,
+          fn: 'getAIReply',
+          finishReason: result.response.candidates?.[0]?.finishReason,
+        });
         return null;
       }
     } catch (err) {
-      console.error('[gemini] API call failed:', err instanceof Error ? err.message : err);
+      logError('Gemini API call failed', err, {
+        provider: 'gemini',
+        model: modelName,
+        fn: 'getAIReply',
+        status: extractGeminiStatus(err),
+      });
       return null;
     }
   };
@@ -92,7 +113,12 @@ export async function getAIReply(
       const text = res.response.text();
       if (text) return text;
     } catch (e: any) {
-      console.warn('[gemini:gemini-1.5-flash] fallback failed:', e?.message || e);
+      logError('Gemini fallback model failed', e, {
+        provider: 'gemini',
+        model: 'gemini-1.5-flash',
+        fn: 'getAIReply',
+        status: extractGeminiStatus(e),
+      });
     }
   }
 
@@ -104,7 +130,11 @@ export async function getAIReply(
   }
 
   // Safe fallback if blocked or error across all providers
-  console.error('[gemini] all Gemini and OpenAI attempts failed, returning fallback');
+  logError('All Gemini and OpenAI attempts failed, returning fallback', undefined, {
+    provider: 'gemini+openai',
+    model: modelName,
+    fn: 'getAIReply',
+  });
   return `I'm sorry, I wasn't able to process that right now. Please rephrase your question or check out our complete 11 tracks and 20 capstone projects at *https://internship.datacrumbs.org*! 🚀`;
 }
 
@@ -142,7 +172,13 @@ async function getOpenAIReply(
 
       if (!response.ok) {
         const errText = await response.text();
-        console.warn(`[openai-fallback:${targetModel}] HTTP ${response.status}:`, errText);
+        logError('OpenAI fallback HTTP error', errText, {
+          provider: 'openai',
+          model: targetModel,
+          fn: 'getOpenAIReply',
+          status: response.status,
+          body: errText,
+        });
         return null;
       }
 
@@ -150,7 +186,12 @@ async function getOpenAIReply(
       const content = data.choices?.[0]?.message?.content?.trim();
       return content || null;
     } catch (err: any) {
-      console.warn(`[openai-fallback:${targetModel}] error:`, err?.message || err);
+      logError('OpenAI fallback request error', err, {
+        provider: 'openai',
+        model: targetModel,
+        fn: 'getOpenAIReply',
+        status: err?.status,
+      });
       return null;
     }
   };
